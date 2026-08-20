@@ -1,9 +1,15 @@
 .github/
+.cursor/
 .vscode/
+.cursorignore
 .gitignore
+.aime/
+benchmarks/*.mjs
+benchmarks/results/
 src/
 test/
 node_modules/
 tsconfig.json
 out/test/
+*.vsix
 **/*.map

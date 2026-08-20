@@ -13,7 +13,11 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:pseudini.fleshOutAimeComments"
+    "onStartupFinished",
+    "onCommand:pseudini.fleshOutAimeComments",
+    "onCommand:pseudini.fleshOutWholeFile",
+    "onCommand:pseudini.setApiKey",
+    "onCommand:pseudini.clearApiKey"
   ],
   "main": "./out/src/extension.js",
   "contributes": {
@@ -22,20 +26,54 @@
         "command": "pseudini.fleshOutAimeComments",
         "title": "Flesh Out aime: Comments",
         "category": "Pseudini"
+      },
+      {
+        "command": "pseudini.fleshOutWholeFile",
+        "title": "Flesh Out Whole Pseudocode File",
+        "category": "Pseudini"
+      },
+      {
+        "command": "pseudini.setApiKey",
+        "title": "Set API Key",
+        "category": "Pseudini"
+      },
+      {
+        "command": "pseudini.clearApiKey",
+        "title": "Clear API Key",
+        "category": "Pseudini"
       }
     ],
     "configuration": {
       "title": "Pseudini",
       "properties": {
-        "pseudini.agentPath": {
+        "pseudini.ollamaUrl": {
           "type": "string",
-          "default": "",
-          "description": "Path to the Cursor CLI executable. Leave empty to use ~/.local/bin/agent, then the PATH."
+          "default": "http://127.0.0.1:11434",
+          "description": "Loopback URL for the local Ollama server."
         },
         "pseudini.model": {
           "type": "string",
-          "default": "gpt-5.4-mini-none",
-          "description": "Model passed to the Cursor CLI. Low-latency models suit this single-shot transform. Leave empty to use the CLI default."
+          "default": "qwen2.5-coder:3b",
+          "description": "Installed Ollama coding model kept warm while Cursor is open."
+        },
+        "pseudini.largeRequestRoute": {
+          "type": "string",
+          "enum": [
+            "local",
+            "provider"
+          ],
+          "default": "local",
+          "description": "Route comments over 50 words and whole-file chunks to Ollama or a direct provider."
+        },
+        "pseudini.providerBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "HTTPS base URL for an optional OpenAI-compatible provider."
+        },
+        "pseudini.providerModel": {
+          "type": "string",
+          "default": "",
+          "description": "Model ID for the optional direct provider."
         }
       }
     },
@@ -50,7 +88,10 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "benchmark": "node benchmarks/run.mjs",
+    "benchmark:whole": "node benchmarks/run-whole.mjs",
+    "clean": "node -e \"require('node:fs').rmSync('out',{recursive:true,force:true})\"",
+    "compile": "npm run clean && tsc -p ./",
     "check": "tsc --noEmit -p ./",
     "package": "vsce package --no-dependencies --allow-missing-repository",
     "test": "npm run compile && node --test out/test/**/*.test.js",
@@ -60,6 +101,7 @@
     "@types/node": "^26.2.0",
     "@types/vscode": "^1.95.0",
     "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   }
 }

@@ -15,43 +15,70 @@ function activeUserNames(users: User[]): string[] {
 }
 ```
 
-Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->` comment forms. Each
-instruction must fit on one line. The command processes the active file and uses that file as
-context for its language, style, and existing patterns.
+Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->` comment forms. Continue
+long pseudocode on consecutive line comments that use the same marker. Pseudini replaces the
+complete comment range. It processes comments over 600 words as ordered, bounded fragments.
+
+Run **Pseudini: Flesh Out Whole Pseudocode File** to convert a pseudocode-only file. Pseudini
+processes files in sequential 50-line chunks and applies one undoable edit after all chunks pass.
 
 ## Requirements
 
-Pseudini calls the [Cursor CLI](https://cursor.com/docs/cli/installation), so it uses your existing
-Cursor account instead of a separate API key.
+Pseudini uses a local [Ollama](https://ollama.com/) coding model. Install Ollama, start its local
+server, and download the configured model:
 
 ```sh
-curl https://cursor.com/install -fsS | bash
-agent login
+brew install ollama
+ollama serve
+ollama pull qwen2.5-coder:3b
 ```
 
-The extension runs the CLI with `--print --output-format json --mode ask --trust`. Ask mode is
-read-only, so the agent returns text and cannot edit your files. Pseudini applies every change
-itself. The CLI needs `--trust` because a headless run cannot ask you about the directory.
-
-The command shows an error and leaves the file unchanged if the CLI is missing, the CLI is not
-logged in, the response is invalid, or the file changes during generation.
+Pseudini keeps the model loaded while the extension is active. It accepts only a loopback Ollama
+URL, requests schema-constrained JSON, and applies changes only after validating the response.
+The file remains unchanged if generation fails, is cancelled, or the document changes.
 
 ## Settings
 
 | Setting | Purpose |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `pseudini.agentPath` | Path to the Cursor CLI. Empty uses `~/.local/bin/agent`, then the `PATH`. |
-| `pseudini.model` | Model passed to the CLI. Defaults to `gpt-5.4-mini-none`. Empty uses the CLI default. |
+| --------------------- | -------------------------------------------------------------- |
+| `pseudini.ollamaUrl` | Local Ollama URL. Defaults to `http://127.0.0.1:11434`. |
+| `pseudini.model` | Installed Ollama model. Defaults to `qwen2.5-coder:3b`. |
+| `pseudini.largeRequestRoute` | `local`, or `provider` for inputs over 50 words. |
+| `pseudini.providerBaseUrl` | HTTPS base URL for an OpenAI-compatible provider. |
+| `pseudini.providerModel` | Model ID for the optional provider route. |
+
+For an optional high-throughput provider with Chat Completions JSON Schema support, set the
+provider settings, run
+**Pseudini: Set API Key**, and select the `provider` route. Pseudini stores each key in Cursor
+SecretStorage and binds it to the normalized provider endpoint. Small requests remain local.
 
 ## Speed
 
-One run takes about 6 seconds. Measurements on an Enterprise account show that almost all of this
-is Cursor CLI process startup: a one-word prompt costs the same as a full request. The model choice
-still matters, because `auto` selects a reasoning model and takes about 12 seconds.
+Exact instructions such as `log variableName` use a deterministic language adapter and do not call
+the model. Other instructions use the warm local model. Open **Pseudini: Performance** in the
+Output panel to inspect load, prompt-evaluation, generation, and total durations.
 
-Run `agent --list-models` to see your options. Models with `none`, `minimal`, or `low` effort suit
-this single-shot transform. The prompt also tells the agent to answer from the supplied text
-without reading other files, because each tool call adds a round trip.
+Run the repeatable benchmark suite after downloading all benchmark models:
+
+```sh
+ollama pull qwen2.5-coder:1.5b
+ollama pull qwen2.5-coder:7b
+npm run benchmark
+npm run benchmark:whole
+```
+
+The benchmark defaults to 50 warm requests for each passing model and fixture. It stops a failing
+case after three samples when every sample misses the quality or latency gate. The whole-file
+suite reports separately. Use
+`AIME_BENCH_RUNS`, `AIME_BENCH_MODELS`, and `AIME_BENCH_CASES` for focused development runs.
+See `benchmarks/RESULTS.md` for the measured model decision and limits.
+
+## Context cache
+
+Pseudini extracts imports, declarations, indentation, and live source windows. It writes
+deterministic facts to `.aime/cache-v1/` when a document opens or saves. Each entry includes the
+source hash and extractor version. Pseudini ignores stale entries and uses the current buffer.
+The `.aime/` directory is disposable and excluded from Git and Cursor indexing.
 
 ## Development
 
@@ -65,7 +92,7 @@ Development Host, open a source file with an `aime:` comment and run the Pseudin
 
 ## MVP boundaries
 
-- Pseudini changes only complete lines that contain `aime:` instructions.
-- It reads context only from the active file.
-- It does not process multiline pseudocode or make multi-file edits.
+- Pseudini changes only `aime:` comment ranges or the active whole-file command target.
+- It reads authoritative source context only from the active file.
+- It does not make multi-file edits.
 - One command execution creates one undoable editor edit.

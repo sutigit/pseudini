@@ -39,3 +39,33 @@ test("ignores ordinary and empty comments", () => {
 
   assert.deepEqual(findAimeInstructions(documentText), []);
 });
+
+test("joins consecutive line-comment pseudocode into one replacement range", () => {
+  const documentText = [
+    "// aime: validate the request,",
+    "// normalize its account identifier,",
+    "// and return the accepted record",
+    "return existing;",
+  ].join("\n");
+
+  assert.deepEqual(findAimeInstructions(documentText), [
+    {
+      line: 0,
+      endLine: 2,
+      pseudocode:
+        "validate the request, normalize its account identifier, and return the accepted record",
+    },
+  ]);
+});
+
+test("keeps adjacent aime instructions separate", () => {
+  const documentText = [
+    "// aime: validate the request",
+    "// aime: return the accepted record",
+  ].join("\n");
+
+  assert.deepEqual(findAimeInstructions(documentText), [
+    { line: 0, pseudocode: "validate the request" },
+    { line: 1, pseudocode: "return the accepted record" },
+  ]);
+});

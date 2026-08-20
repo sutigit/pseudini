@@ -6,14 +6,19 @@ import { createImplementationPrompt, parseModelResponse } from "../src/prompt";
 const instructions: readonly AimeInstruction[] = [
   { line: 2, pseudocode: "return the sum" },
 ];
+const context = {
+  contentHash: "test-hash",
+  languageId: "typescript",
+  fileName: "total.ts",
+  imports: [],
+  declarations: ["function total() {"],
+  indentation: "2 spaces",
+  liveSource: "function total() {\n  // aime: return the sum\n}",
+  usedFullFile: true,
+};
 
 test("creates a prompt with file context and instructions", () => {
-  const prompt = createImplementationPrompt(
-    "typescript",
-    "total.ts",
-    "function total() {\n  // aime: return the sum\n}",
-    instructions,
-  );
+  const prompt = createImplementationPrompt(context, instructions);
 
   assert.match(prompt, /Language identifier: typescript/);
   assert.match(prompt, /File name: total\.ts/);
