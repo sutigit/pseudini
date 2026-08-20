@@ -1,0 +1,50 @@
+{
+  "name": "pseudini",
+  "displayName": "Pseudini",
+  "description": "Turn aime: pseudocode comments into code.",
+  "version": "0.1.0",
+  "publisher": "pseudini",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:pseudini.fleshOutAimeComments"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pseudini.fleshOutAimeComments",
+        "title": "Pseudini: Flesh Out aime: Comments",
+        "category": "Pseudini"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "pseudini.fleshOutAimeComments",
+          "group": "navigation@100",
+          "when": "editorTextFocus"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "check": "tsc --noEmit -p ./",
+    "package": "vsce package --no-dependencies --allow-missing-repository",
+    "test": "npm run compile && node --test out/test/**/*.test.js",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^7.0.2"
+  }
+}
