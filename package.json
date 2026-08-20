@@ -20,10 +20,25 @@
     "commands": [
       {
         "command": "pseudini.fleshOutAimeComments",
-        "title": "Pseudini: Flesh Out aime: Comments",
+        "title": "Flesh Out aime: Comments",
         "category": "Pseudini"
       }
     ],
+    "configuration": {
+      "title": "Pseudini",
+      "properties": {
+        "pseudini.agentPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Cursor CLI executable. Leave empty to use ~/.local/bin/agent, then the PATH."
+        },
+        "pseudini.model": {
+          "type": "string",
+          "default": "gpt-5.4-mini-none",
+          "description": "Model passed to the Cursor CLI. Low-latency models suit this single-shot transform. Leave empty to use the CLI default."
+        }
+      }
+    },
     "menus": {
       "editor/context": [
         {

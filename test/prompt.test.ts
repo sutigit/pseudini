@@ -38,9 +38,33 @@ test("rejects missing replacements", () => {
   );
 });
 
-test("rejects non-JSON output", () => {
+test("reads a response wrapped in prose and Markdown fences", () => {
+  const response = [
+    "Here is the implementation:",
+    "```json",
+    '{"replacements":[{"line":2,"code":"  return total;"}]}',
+    "```",
+  ].join("\n");
+
+  assert.deepEqual(parseModelResponse(response, instructions), [
+    { line: 2, code: "  return total;" },
+  ]);
+});
+
+test("reads the replacement object after prose that contains braces", () => {
+  const response = [
+    "The existing pattern uses `map((user) => { return user.name; })`, so I matched it.",
+    '{"replacements":[{"line":2,"code":"  return total;"}]}',
+  ].join("\n");
+
+  assert.deepEqual(parseModelResponse(response, instructions), [
+    { line: 2, code: "  return total;" },
+  ]);
+});
+
+test("rejects output without a JSON object", () => {
   assert.throws(
-    () => parseModelResponse("```json\n{}\n```", instructions),
+    () => parseModelResponse("I cannot help with that.", instructions),
     /not valid JSON/,
   );
 });

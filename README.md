@@ -19,11 +19,39 @@ Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->` comment 
 instruction must fit on one line. The command processes the active file and uses that file as
 context for its language, style, and existing patterns.
 
-The extension uses the
-[VS Code Language Model API](https://code.visualstudio.com/api/extension-guides/ai/language-model).
-Cursor must expose at least one language model to extensions. Cursor can ask for consent before
-the first request. The command shows an error without changing the file if no model is available,
-the response is invalid, or the file changes during generation.
+## Requirements
+
+Pseudini calls the [Cursor CLI](https://cursor.com/docs/cli/installation), so it uses your existing
+Cursor account instead of a separate API key.
+
+```sh
+curl https://cursor.com/install -fsS | bash
+agent login
+```
+
+The extension runs the CLI with `--print --output-format json --mode ask --trust`. Ask mode is
+read-only, so the agent returns text and cannot edit your files. Pseudini applies every change
+itself. The CLI needs `--trust` because a headless run cannot ask you about the directory.
+
+The command shows an error and leaves the file unchanged if the CLI is missing, the CLI is not
+logged in, the response is invalid, or the file changes during generation.
+
+## Settings
+
+| Setting | Purpose |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `pseudini.agentPath` | Path to the Cursor CLI. Empty uses `~/.local/bin/agent`, then the `PATH`. |
+| `pseudini.model` | Model passed to the CLI. Defaults to `gpt-5.4-mini-none`. Empty uses the CLI default. |
+
+## Speed
+
+One run takes about 6 seconds. Measurements on an Enterprise account show that almost all of this
+is Cursor CLI process startup: a one-word prompt costs the same as a full request. The model choice
+still matters, because `auto` selects a reasoning model and takes about 12 seconds.
+
+Run `agent --list-models` to see your options. Models with `none`, `minimal`, or `low` effort suit
+this single-shot transform. The prompt also tells the agent to answer from the supplied text
+without reading other files, because each tool call adds a round trip.
 
 ## Development
 

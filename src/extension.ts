@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { findAimeInstructions } from "./commentParser";
-import { requestImplementation } from "./languageModel";
+import { requestImplementation } from "./cursorAgent";
 import { createImplementationPrompt, parseModelResponse } from "./prompt";
 
 const COMMAND_ID = "pseudini.fleshOutAimeComments";
@@ -44,7 +44,12 @@ async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
         title: `Pseudini is implementing ${instructions.length} comment(s)`,
         cancellable: true,
       },
-      (_progress, token) => requestImplementation(prompt, token),
+      (_progress, token) =>
+        requestImplementation({
+          prompt,
+          workspaceDirectory: resolveWorkspaceDirectory(document),
+          token,
+        }),
     );
 
     if (document.version !== documentVersion) {
@@ -73,4 +78,10 @@ async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`Pseudini: ${message}`);
   }
+}
+
+function resolveWorkspaceDirectory(document: vscode.TextDocument): string {
+  const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+
+  return folder ? folder.uri.fsPath : path.dirname(document.fileName);
 }
