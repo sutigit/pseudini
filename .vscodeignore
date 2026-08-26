@@ -4,6 +4,7 @@
 .cursorignore
 .gitignore
 .aime/
+AGENTS.md
 benchmarks/*.mjs
 benchmarks/results/
 src/

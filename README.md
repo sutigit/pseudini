@@ -130,6 +130,8 @@ cache and privacy inspection; benchmarks; troubleshooting; and product-learning 
 
 ## Development
 
+Agent notes for this repository are in `AGENTS.md`. History is in `CHANGELOG.md`.
+
 ```sh
 npm install
 npm test
