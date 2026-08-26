@@ -25,6 +25,28 @@ pgrep -fl 'ollama serve'
 | Unload the model, keep the server | `ollama stop qwen2.5-coder:3b` |
 | Watch loaded models once per second | `while true; do clear; date; ollama ps; sleep 1; done` |
 
+### Installed extension and project configuration
+
+```sh
+code --list-extensions --show-versions | rg '^pseudini\.pseudini@'
+python3 -m json.tool .cursor/pseudini-config.json
+ollama ps
+```
+
+The extension list confirms installation, but a non-default Cursor profile can have a separate
+extension registry. Use **Developer: Show Running Extensions** in the project window to confirm
+that Pseudini is active in that profile.
+
+After changing `.cursor/pseudini-config.json`, check **Pseudini: Performance** for:
+
+```text
+[info] project configuration changed file=...
+[info] preloaded model=... wallMs=...
+```
+
+The preloaded model must match the project file. Project-file values take priority over
+resource-scoped Cursor settings. See `README.md` for installation and configuration instructions.
+
 ### Logs and extension metrics
 
 Open **View > Output**, then select **Pseudini: Performance**.

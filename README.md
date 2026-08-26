@@ -40,6 +40,22 @@ Pseudini keeps the model loaded while the extension is active. It accepts only a
 URL, requests schema-constrained JSON, and applies changes only after validating the response.
 The file remains unchanged if generation fails, is cancelled, or the document changes.
 
+## Install in Cursor
+
+Install Pseudini as a normal local extension:
+
+```sh
+npm install
+npm run install:cursor
+```
+
+Run **Developer: Reload Window** in Cursor after installation. Pseudini then works in normal
+project windows without the extension debugger. Re-run `npm run install:cursor` and reload Cursor
+to update the installed extension after a code change.
+
+If the CLI installs into a different Cursor profile, run
+**Extensions: Install from VSIX...**, select `pseudini-local.vsix`, and reload that profile.
+
 ## Settings
 
 | Setting | Purpose |
@@ -54,6 +70,28 @@ For an optional high-throughput provider with Chat Completions JSON Schema suppo
 provider settings, run
 **Pseudini: Set API Key**, and select the `provider` route. Pseudini stores each key in Cursor
 SecretStorage and binds it to the normalized provider endpoint. Small requests remain local.
+
+### Project configuration
+
+Add `.cursor/pseudini-config.json` to a project to override Pseudini settings for that project:
+
+```json
+{
+  "ollamaUrl": "http://127.0.0.1:11434",
+  "model": "qwen2.5-coder:3b",
+  "largeRequestRoute": "local",
+  "providerBaseUrl": "",
+  "providerModel": ""
+}
+```
+
+All fields are optional. Project-file values override resource-scoped Cursor settings, which
+override Pseudini defaults. Pseudini watches this file and applies changes without reinstalling
+the extension. Changing `model` or `ollamaUrl` unloads the previous local model and warms the new
+configuration.
+
+Do not put provider API keys in this file. Use **Pseudini: Set API Key** so Cursor SecretStorage
+holds the key.
 
 ## Speed
 
@@ -98,7 +136,11 @@ npm test
 ```
 
 Open this folder in Cursor and run the `Run Extension` launch configuration. In the Extension
-Development Host, open a source file with an `aime:` comment and run the Pseudini command.
+Development Host, open a source file with an `aime:` comment and run the Pseudini command. This
+F5 workflow compiles first and uses the development copy, so it remains the fastest way to test
+code changes.
+
+Use `npm run install:cursor` only when testing the packaged extension in a normal Cursor window.
 
 ## MVP boundaries
 

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ConfigurationService } from "./configurationService";
 import {
   checkOllamaHealth,
   OllamaConfiguration,
@@ -11,18 +12,11 @@ import {
   createApiKeySecretName,
   requestProviderImplementation,
 } from "./providerApi";
+import { PseudiniConfiguration } from "./projectConfiguration";
 import { createReplacementSchema } from "./responseSchema";
 
-interface ProviderConfiguration {
-  readonly baseUrl: string;
-  readonly model: string;
-  readonly largeRequestRoute: "local" | "provider";
-}
-
-const CONFIGURATION_SECTION = "pseudini";
-
 export class GenerationService implements vscode.Disposable {
-  private localConfiguration = readOllamaConfiguration();
+  private localConfiguration: OllamaConfiguration | undefined;
   private modelRequestQueue: Promise<void> = Promise.resolve();
   private readonly activeControllers = new Set<AbortController>();
   private disposed = false;
@@ -30,31 +24,29 @@ export class GenerationService implements vscode.Disposable {
   public constructor(
     private readonly output: vscode.OutputChannel,
     private readonly secrets: vscode.SecretStorage,
+    private readonly configuration: ConfigurationService,
   ) {}
 
-  public async warm(): Promise<void> {
-    const startedAt = performance.now();
-
+  public async warm(resource?: vscode.Uri): Promise<void> {
     try {
-      await checkOllamaHealth(this.localConfiguration);
-      await preloadOllamaModel(this.localConfiguration);
-      this.output.appendLine(
-        `[info] preloaded model=${this.localConfiguration.model} ` +
-          `wallMs=${(performance.now() - startedAt).toFixed(1)}`,
-      );
+      await this.queueConfiguration(resource, true);
     } catch (error) {
-      this.output.appendLine(`[warn] preload failed: ${readErrorMessage(error)}`);
+      this.output.appendLine(
+        `[warn] configuration load failed: ${readErrorMessage(error)}`,
+      );
     }
   }
 
-  public reconfigure(): void {
-    const previous = this.localConfiguration;
-    this.localConfiguration = readOllamaConfiguration();
-    void unloadOllamaModel(previous);
-    void this.warm();
+  public reconfigure(resource?: vscode.Uri): void {
+    void this.queueConfiguration(resource, false).catch((error) => {
+      this.output.appendLine(
+        `[warn] configuration reload failed: ${readErrorMessage(error)}`,
+      );
+    });
   }
 
   public async request(
+    resource: vscode.Uri,
     prompt: string,
     replacementLines: readonly number[],
     maxOutputTokens: number,
@@ -62,19 +54,20 @@ export class GenerationService implements vscode.Disposable {
     token: vscode.CancellationToken,
     responseSchema?: object,
   ): Promise<string> {
-    const provider = readProviderConfiguration();
-    if (provider.largeRequestRoute === "provider" && isLargeRequest) {
+    const configuration = await this.configuration.resolve(resource);
+    if (configuration.largeRequestRoute === "provider" && isLargeRequest) {
       return this.requestProvider(
         prompt,
         maxOutputTokens,
         responseSchema ?? createReplacementSchema(replacementLines),
-        provider,
+        configuration,
         token,
       );
     }
 
     return (
       await this.queueLocalRequest(
+        readOllamaConfiguration(configuration),
         prompt,
         replacementLines,
         maxOutputTokens,
@@ -84,9 +77,9 @@ export class GenerationService implements vscode.Disposable {
     ).text;
   }
 
-  public async setProviderApiKey(): Promise<void> {
-    const provider = readProviderConfiguration();
-    const secretName = createApiKeySecretName(provider.baseUrl);
+  public async setProviderApiKey(resource?: vscode.Uri): Promise<void> {
+    const configuration = await this.configuration.resolve(resource);
+    const secretName = createApiKeySecretName(configuration.providerBaseUrl);
     const apiKey = await vscode.window.showInputBox({
       prompt: "Enter the API key for the configured Pseudini provider",
       password: true,
@@ -101,9 +94,11 @@ export class GenerationService implements vscode.Disposable {
     void vscode.window.showInformationMessage("Pseudini stored the provider API key.");
   }
 
-  public async clearProviderApiKey(): Promise<void> {
-    const provider = readProviderConfiguration();
-    await this.secrets.delete(createApiKeySecretName(provider.baseUrl));
+  public async clearProviderApiKey(resource?: vscode.Uri): Promise<void> {
+    const configuration = await this.configuration.resolve(resource);
+    await this.secrets.delete(
+      createApiKeySecretName(configuration.providerBaseUrl),
+    );
     void vscode.window.showInformationMessage("Pseudini cleared the provider API key.");
   }
 
@@ -113,7 +108,9 @@ export class GenerationService implements vscode.Disposable {
       controller.abort();
     }
     this.activeControllers.clear();
-    void unloadOllamaModel(this.localConfiguration);
+    if (this.localConfiguration) {
+      void unloadOllamaModel(this.localConfiguration);
+    }
     this.modelRequestQueue = Promise.resolve();
   }
 
@@ -121,10 +118,12 @@ export class GenerationService implements vscode.Disposable {
     prompt: string,
     maxOutputTokens: number,
     responseSchema: object,
-    provider: ProviderConfiguration,
+    configuration: PseudiniConfiguration,
     token: vscode.CancellationToken,
   ): Promise<string> {
-    const apiKey = await this.secrets.get(createApiKeySecretName(provider.baseUrl));
+    const apiKey = await this.secrets.get(
+      createApiKeySecretName(configuration.providerBaseUrl),
+    );
     if (!apiKey) {
       throw new Error("Set a provider API key with Pseudini: Set API Key.");
     }
@@ -137,15 +136,15 @@ export class GenerationService implements vscode.Disposable {
     try {
       const responseText = await requestProviderImplementation({
         apiKey,
-        baseUrl: provider.baseUrl,
-        model: provider.model,
+        baseUrl: configuration.providerBaseUrl,
+        model: configuration.providerModel,
         prompt,
         maxOutputTokens,
         responseSchema,
         signal: controller.signal,
       });
       this.output.appendLine(
-        `[info] provider model=${provider.model} ` +
+        `[info] provider model=${configuration.providerModel} ` +
           `wallMs=${(performance.now() - startedAt).toFixed(1)}`,
       );
       return responseText;
@@ -161,6 +160,7 @@ export class GenerationService implements vscode.Disposable {
   }
 
   private queueLocalRequest(
+    configuration: OllamaConfiguration,
     prompt: string,
     replacementLines: readonly number[],
     maxOutputTokens: number,
@@ -171,12 +171,15 @@ export class GenerationService implements vscode.Disposable {
       if (this.disposed || token.isCancellationRequested) {
         throw new vscode.CancellationError();
       }
-      return this.performLocalRequest(
-        prompt,
-        replacementLines,
-        maxOutputTokens,
-        token,
-        responseSchema,
+      return this.prepareLocalConfiguration(configuration).then(() =>
+        this.performLocalRequest(
+          configuration,
+          prompt,
+          replacementLines,
+          maxOutputTokens,
+          token,
+          responseSchema,
+        ),
       );
     });
     this.modelRequestQueue = request.then(
@@ -187,6 +190,7 @@ export class GenerationService implements vscode.Disposable {
   }
 
   private async performLocalRequest(
+    configuration: OllamaConfiguration,
     prompt: string,
     replacementLines: readonly number[],
     maxOutputTokens: number,
@@ -200,14 +204,14 @@ export class GenerationService implements vscode.Disposable {
 
     try {
       const result = await requestOllamaImplementation({
-        ...this.localConfiguration,
+        ...configuration,
         prompt,
         replacementLines,
         responseSchema,
         maxOutputTokens,
         signal: controller.signal,
       });
-      this.writeLocalMetrics(result, performance.now() - startedAt);
+      this.writeLocalMetrics(configuration, result, performance.now() - startedAt);
       return result;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -220,10 +224,70 @@ export class GenerationService implements vscode.Disposable {
     }
   }
 
-  private writeLocalMetrics(result: OllamaResult, wallMs: number): void {
+  private queueConfiguration(
+    resource: vscode.Uri | undefined,
+    forceWarm: boolean,
+  ): Promise<void> {
+    const operation = this.modelRequestQueue.then(async () => {
+      if (this.disposed) {
+        return;
+      }
+
+      const resolved = await this.configuration.resolve(resource);
+      await this.prepareLocalConfiguration(
+        readOllamaConfiguration(resolved),
+        forceWarm,
+      );
+    });
+    this.modelRequestQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  private async prepareLocalConfiguration(
+    configuration: OllamaConfiguration,
+    forceWarm = false,
+  ): Promise<void> {
+    const previous = this.localConfiguration;
+    const changed = !isSameOllamaConfiguration(previous, configuration);
+    if (!changed && !forceWarm) {
+      return;
+    }
+
+    if (previous && changed) {
+      try {
+        await unloadOllamaModel(previous);
+      } catch (error) {
+        this.output.appendLine(
+          `[warn] unload failed model=${previous.model}: ${readErrorMessage(error)}`,
+        );
+      }
+    }
+
+    this.localConfiguration = configuration;
+    const startedAt = performance.now();
+    try {
+      await checkOllamaHealth(configuration);
+      await preloadOllamaModel(configuration);
+      this.output.appendLine(
+        `[info] preloaded model=${configuration.model} ` +
+          `wallMs=${(performance.now() - startedAt).toFixed(1)}`,
+      );
+    } catch (error) {
+      this.output.appendLine(`[warn] preload failed: ${readErrorMessage(error)}`);
+    }
+  }
+
+  private writeLocalMetrics(
+    configuration: OllamaConfiguration,
+    result: OllamaResult,
+    wallMs: number,
+  ): void {
     this.output.appendLine(
       `[info] ${[
-        `model=${this.localConfiguration.model}`,
+        `model=${configuration.model}`,
         `wallMs=${wallMs.toFixed(1)}`,
         `ollamaMs=${result.timings.totalMs.toFixed(1)}`,
         `loadMs=${result.timings.loadMs.toFixed(1)}`,
@@ -236,23 +300,20 @@ export class GenerationService implements vscode.Disposable {
   }
 }
 
-function readOllamaConfiguration(): OllamaConfiguration {
-  const configuration = vscode.workspace.getConfiguration(CONFIGURATION_SECTION);
+function readOllamaConfiguration(
+  configuration: PseudiniConfiguration,
+): OllamaConfiguration {
   return {
-    baseUrl: configuration.get<string>("ollamaUrl", "http://127.0.0.1:11434").trim(),
-    model: configuration.get<string>("model", "qwen2.5-coder:3b").trim(),
+    baseUrl: configuration.ollamaUrl,
+    model: configuration.model,
   };
 }
 
-function readProviderConfiguration(): ProviderConfiguration {
-  const configuration = vscode.workspace.getConfiguration(CONFIGURATION_SECTION);
-  const route = configuration.get<string>("largeRequestRoute", "local");
-
-  return {
-    baseUrl: configuration.get<string>("providerBaseUrl", "").trim(),
-    model: configuration.get<string>("providerModel", "").trim(),
-    largeRequestRoute: route === "provider" ? "provider" : "local",
-  };
+function isSameOllamaConfiguration(
+  left: OllamaConfiguration | undefined,
+  right: OllamaConfiguration,
+): boolean {
+  return left?.baseUrl === right.baseUrl && left.model === right.model;
 }
 
 function readErrorMessage(error: unknown): string {

@@ -94,6 +94,8 @@
     "compile": "npm run clean && tsc -p ./",
     "check": "tsc --noEmit -p ./",
     "package": "vsce package --no-dependencies --allow-missing-repository",
+    "package:local": "vsce package --no-dependencies --allow-missing-repository --out pseudini-local.vsix",
+    "install:cursor": "npm run package:local && code --install-extension pseudini-local.vsix --force",
     "test": "npm run compile && node --test out/test/**/*.test.js",
     "vscode:prepublish": "npm run compile"
   },

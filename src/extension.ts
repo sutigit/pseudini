@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { AimeInstruction, findAimeInstructions } from "./commentParser";
+import { ConfigurationService } from "./configurationService";
 import { ContextIndexer } from "./contextIndexer";
 import { GenerationService } from "./generationService";
 import { applyCommentIndentation, readIndentation } from "./indentation";
@@ -28,7 +29,6 @@ const FLESH_OUT_COMMAND_ID = "pseudini.fleshOutAimeComments";
 const WHOLE_FILE_COMMAND_ID = "pseudini.fleshOutWholeFile";
 const SET_API_KEY_COMMAND_ID = "pseudini.setApiKey";
 const CLEAR_API_KEY_COMMAND_ID = "pseudini.clearApiKey";
-const CONFIGURATION_SECTION = "pseudini";
 
 let performanceOutput: vscode.OutputChannel | undefined;
 let contextIndexer: ContextIndexer | undefined;
@@ -39,9 +39,11 @@ export function activate(context: vscode.ExtensionContext): void {
     log: true,
   });
   const activeContextIndexer = new ContextIndexer(performanceOutput);
+  const activeConfigurationService = new ConfigurationService(performanceOutput);
   const activeGenerationService = new GenerationService(
     performanceOutput,
     context.secrets,
+    activeConfigurationService,
   );
   contextIndexer = activeContextIndexer;
   generationService = activeGenerationService;
@@ -55,11 +57,17 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const setApiKeyCommand = vscode.commands.registerCommand(
     SET_API_KEY_COMMAND_ID,
-    () => runProviderKeyCommand(() => activeGenerationService.setProviderApiKey()),
+    () =>
+      runProviderKeyCommand(() =>
+        activeGenerationService.setProviderApiKey(resolveActiveResource()),
+      ),
   );
   const clearApiKeyCommand = vscode.commands.registerCommand(
     CLEAR_API_KEY_COMMAND_ID,
-    () => runProviderKeyCommand(() => activeGenerationService.clearProviderApiKey()),
+    () =>
+      runProviderKeyCommand(() =>
+        activeGenerationService.clearProviderApiKey(resolveActiveResource()),
+      ),
   );
   const openListener = vscode.workspace.onDidOpenTextDocument((document) => {
     void activeContextIndexer.refresh(document);
@@ -67,15 +75,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const saveListener = vscode.workspace.onDidSaveTextDocument((document) => {
     void activeContextIndexer.refresh(document);
   });
-  const configurationListener = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (
-      !event.affectsConfiguration(`${CONFIGURATION_SECTION}.model`) &&
-      !event.affectsConfiguration(`${CONFIGURATION_SECTION}.ollamaUrl`)
-    ) {
-      return;
-    }
-
-    activeGenerationService.reconfigure();
+  const configurationListener = activeConfigurationService.onDidChange((resource) => {
+    activeGenerationService.reconfigure(resource ?? resolveActiveResource());
   });
 
   context.subscriptions.push(
@@ -87,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
     saveListener,
     configurationListener,
     performanceOutput,
+    activeConfigurationService,
     activeContextIndexer,
     activeGenerationService,
   );
@@ -94,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
   for (const document of vscode.workspace.textDocuments) {
     void activeContextIndexer.refresh(document);
   }
-  void activeGenerationService.warm();
+  void activeGenerationService.warm(resolveActiveResource());
 }
 
 export function deactivate(): void {
@@ -180,6 +182,7 @@ async function createReplacements(
     const fileContext = await getContextIndexer().resolve(document, documentText, batch);
     const prompt = createImplementationPrompt(fileContext, batch);
     const responseText = await getGenerationService().request(
+      document.uri,
       prompt,
       batch.map(({ line }) => line),
       estimateMaxOutputTokens(batch),
@@ -240,6 +243,7 @@ async function fleshOutWholeFile(editor: vscode.TextEditor): Promise<void> {
             previousTail,
           );
           const responseText = await getGenerationService().request(
+            document.uri,
             prompt,
             [],
             Math.min(4_096, Math.max(512, countWords(chunk) * 2)),
@@ -302,6 +306,13 @@ function getGenerationService(): GenerationService {
     throw new Error("Pseudini model service is not initialized.");
   }
   return generationService;
+}
+
+function resolveActiveResource(): vscode.Uri | undefined {
+  return (
+    vscode.window.activeTextEditor?.document.uri ??
+    vscode.workspace.workspaceFolders?.[0]?.uri
+  );
 }
 
 async function runProviderKeyCommand(operation: () => Promise<void>): Promise<void> {
