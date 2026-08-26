@@ -19,6 +19,9 @@ Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->` comment 
 long pseudocode on consecutive line comments that use the same marker. Pseudini replaces the
 complete comment range. It processes comments over 600 words as ordered, bounded fragments.
 
+Pseudini indents the generated code to the comment's own indentation and keeps the relative
+indentation of nested lines.
+
 Run **Pseudini: Flesh Out Whole Pseudocode File** to convert a pseudocode-only file. Pseudini
 processes files in sequential 50-line chunks and applies one undoable edit after all chunks pass.
 

@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { AimeInstruction, findAimeInstructions } from "./commentParser";
 import { ContextIndexer } from "./contextIndexer";
 import { GenerationService } from "./generationService";
+import { applyCommentIndentation, readIndentation } from "./indentation";
 import {
   CodeReplacement,
   createImplementationPrompt,
@@ -186,10 +187,25 @@ async function createReplacements(
       token,
     );
     ensureDocumentUnchanged(document, documentVersion);
-    generated.push(...parseModelResponse(responseText, batch));
+    generated.push(
+      ...indentReplacements(parseModelResponse(responseText, batch), sourceLines),
+    );
   }
 
   return mergeReplacementFragments([...deterministic, ...generated]);
+}
+
+function indentReplacements(
+  replacements: readonly CodeReplacement[],
+  sourceLines: readonly string[],
+): readonly CodeReplacement[] {
+  return replacements.map((replacement) => ({
+    ...replacement,
+    code: applyCommentIndentation(
+      replacement.code,
+      readIndentation(sourceLines[replacement.line] ?? ""),
+    ),
+  }));
 }
 
 async function fleshOutWholeFile(editor: vscode.TextEditor): Promise<void> {
