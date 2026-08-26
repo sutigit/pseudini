@@ -95,6 +95,8 @@ requests stay local.
 
 ## How to work
 
+Start a new chat with `/dev-pseudini`, then the task.
+
 Fast change-and-test: open this folder, run **Run Extension** (F5). That host compiles first and
 overrides the installed copy.
 
