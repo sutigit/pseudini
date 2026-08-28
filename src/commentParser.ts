@@ -4,8 +4,9 @@ export interface AimeInstruction {
   readonly pseudocode: string;
 }
 
+// JSX wraps a block comment in an expression container: `{/* aime: ... */}`.
 const SINGLE_LINE_AIME_PATTERN =
-  /^\s*(?:\/\/|#|--|;|\/\*+|\*|<!--)\s*aime:\s*(.*?)(?:\s*(?:\*\/|-->))?\s*$/i;
+  /^\s*(?:\/\/|#|--|;|\{\s*\/\*+|\/\*+|\*|<!--)\s*aime:\s*(.*?)(?:\s*(?:\*\/\s*\}?|-->))?\s*$/i;
 const LINE_COMMENT_AIME_PATTERN = /^\s*(\/\/|#|--|;)\s*aime:\s*(.*?)\s*$/i;
 
 export function findAimeInstructions(documentText: string): AimeInstruction[] {

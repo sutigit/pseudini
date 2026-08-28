@@ -6,6 +6,14 @@ This file records major changes to Pseudini. Usage, settings, and current limits
 
 The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
+## 2026-08-27
+
+### Fixed
+
+- The comment parser now finds `aime:` instructions in JSX and TSX expression comments, for example
+  `{/* aime: render each active user */}`. It previously required the comment marker to start the
+  line, so the brace container hid the instruction.
+
 ## 2026-08-26
 
 ### Added

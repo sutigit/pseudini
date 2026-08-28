@@ -15,7 +15,8 @@ function activeUserNames(users: User[]): string[] {
 }
 ```
 
-Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->` comment forms. Continue
+Pseudini supports `//`, `#`, `--`, `;`, `/* ... */`, `{/* ... */}` for JSX and TSX, and
+`<!-- ... -->` comment forms. Continue
 long pseudocode on consecutive line comments that use the same marker. Pseudini replaces the
 complete comment range. It processes comments over 600 words as ordered, bounded fragments.
 

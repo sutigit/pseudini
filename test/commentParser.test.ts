@@ -30,6 +30,24 @@ test("finds single-line block and HTML comments", () => {
   ]);
 });
 
+test("finds aime instructions in JSX expression comments", () => {
+  const documentText = [
+    "export function UserList({ users }: Props) {",
+    "  return (",
+    "    <ul>",
+    "      {/* aime: render each active user as a list item */}",
+    "      { /* aime: show a placeholder when the list is empty */ }",
+    "    </ul>",
+    "  );",
+    "}",
+  ].join("\n");
+
+  assert.deepEqual(findAimeInstructions(documentText), [
+    { line: 3, pseudocode: "render each active user as a list item" },
+    { line: 4, pseudocode: "show a placeholder when the list is empty" },
+  ]);
+});
+
 test("ignores ordinary and empty comments", () => {
   const documentText = [
     "// explain this implementation",
