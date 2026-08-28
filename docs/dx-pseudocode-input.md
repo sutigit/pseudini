@@ -1,6 +1,8 @@
 # DX: pseudocode input (rough plan)
 
-Status: sketch only. Edit this file by hand. No implementation yet.
+Status: historical sketch. Locked product choices and the implementation architecture are in
+[`inline-composer.md`](./inline-composer.md). Keep this file as the option list and rejected
+hosts. Do not treat the Option A verdict below as current.
 
 Product goal stays the same as `AGENTS.md`: the developer writes the idea; the local model
 writes syntax for the active file. This sketch is about making that idea easier to enter.
