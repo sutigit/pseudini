@@ -2,44 +2,47 @@ import * as vscode from "vscode";
 import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
-import {
-  classifyComposerTokens,
-  ComposerTokenKind,
-} from "./tokenClassifier";
+import { classifyComposerTokens, ComposerTokenKind } from "./tokenClassifier";
 
-const PLACEHOLDER = "describe the change";
+const PLACEHOLDER = "describe the change | esc cancels | pseudini ⌘⏎";
 
 export class ComposerView implements vscode.Disposable {
-  private readonly regionDecoration = vscode.window.createTextEditorDecorationType({
-    isWholeLine: true,
-    backgroundColor: new vscode.ThemeColor("editor.wordHighlightBackground"),
-    borderColor: new vscode.ThemeColor("focusBorder"),
-    borderStyle: "solid",
-    borderWidth: "0 0 0 2px",
-  });
-  private readonly dimDecoration = vscode.window.createTextEditorDecorationType({
-    opacity: "0.35",
-  });
-  private readonly keywordDecoration = vscode.window.createTextEditorDecorationType({
-    color: new vscode.ThemeColor("symbolIcon.keywordForeground"),
-  });
+  private readonly regionDecoration =
+    vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      backgroundColor: new vscode.ThemeColor("editor.wordHighlightBackground"),
+      borderColor: new vscode.ThemeColor("focusBorder"),
+      borderStyle: "solid",
+      borderWidth: "0 0 0 2px",
+    });
+  private readonly dimDecoration = vscode.window.createTextEditorDecorationType(
+    {
+      opacity: "0.4",
+    },
+  );
+  private readonly keywordDecoration =
+    vscode.window.createTextEditorDecorationType({
+      color: new vscode.ThemeColor("symbolIcon.keywordForeground"),
+    });
   private readonly identifierDecoration =
     vscode.window.createTextEditorDecorationType({
       color: new vscode.ThemeColor("symbolIcon.variableForeground"),
     });
   // The delimiters must stay in the buffer to keep parsers quiet, but the
   // developer should see an input box, not a comment.
-  private readonly wrapperDecoration = vscode.window.createTextEditorDecorationType({
-    color: "transparent",
-    letterSpacing: "-0.5em",
-  });
-  private readonly placeholderDecoration = vscode.window.createTextEditorDecorationType({
-    after: {
-      contentText: PLACEHOLDER,
-      color: new vscode.ThemeColor("editorGhostText.foreground"),
-      margin: "0 0 0 0.25rem",
-    },
-  });
+  private readonly wrapperDecoration =
+    vscode.window.createTextEditorDecorationType({
+      color: "transparent",
+      letterSpacing: "-1em",
+    });
+  private readonly placeholderDecoration =
+    vscode.window.createTextEditorDecorationType({
+      after: {
+        contentText: PLACEHOLDER,
+        color: new vscode.ThemeColor("editorGhostText.foreground"),
+        margin: "0 0 0 1rem",
+      },
+    });
   private readonly status = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
@@ -53,15 +56,12 @@ export class ComposerView implements vscode.Disposable {
     const region = toEditorRange(editor.document, session);
     const tokenRanges = createTokenRanges(editor.document, session);
     editor.setDecorations(this.regionDecoration, [region]);
-    editor.setDecorations(this.dimDecoration, createDimRanges(editor.document, session));
     editor.setDecorations(
-      this.keywordDecoration,
-      tokenRanges.keyword,
+      this.dimDecoration,
+      createDimRanges(editor.document, session),
     );
-    editor.setDecorations(
-      this.identifierDecoration,
-      tokenRanges.identifier,
-    );
+    editor.setDecorations(this.keywordDecoration, tokenRanges.keyword);
+    editor.setDecorations(this.identifierDecoration, tokenRanges.identifier);
     editor.setDecorations(
       this.wrapperDecoration,
       createWrapperRanges(editor.document, session),
@@ -77,7 +77,11 @@ export class ComposerView implements vscode.Disposable {
         ? "$(loading~spin) Pseudini: generating syntax"
         : "$(sparkle) Pseudini  $(keyboard) ⌘↵ confirm · Esc cancel";
     this.status.show();
-    void vscode.commands.executeCommand("setContext", "pseudini.composerActive", true);
+    void vscode.commands.executeCommand(
+      "setContext",
+      "pseudini.composerActive",
+      true,
+    );
   }
 
   public clear(editor?: vscode.TextEditor): void {
@@ -90,7 +94,11 @@ export class ComposerView implements vscode.Disposable {
       editor.setDecorations(this.placeholderDecoration, []);
     }
     this.status.hide();
-    void vscode.commands.executeCommand("setContext", "pseudini.composerActive", false);
+    void vscode.commands.executeCommand(
+      "setContext",
+      "pseudini.composerActive",
+      false,
+    );
   }
 
   public dispose(): void {
@@ -144,7 +152,9 @@ function createTokenRanges(
   document: vscode.TextDocument,
   session: ComposerSession,
 ): Record<ComposerTokenKind, vscode.Range[]> {
-  const identifiers = new Set(scanIdentifiers(document.getText(), session.range));
+  const identifiers = new Set(
+    scanIdentifiers(document.getText(), session.range),
+  );
   const keywords = new Set(getLanguageKeywords(document.languageId));
   const ranges: Record<ComposerTokenKind, vscode.Range[]> = {
     identifier: [],
@@ -157,7 +167,11 @@ function createTokenRanges(
     lineNumber += 1
   ) {
     const line = document.lineAt(lineNumber);
-    for (const token of classifyComposerTokens(line.text, identifiers, keywords)) {
+    for (const token of classifyComposerTokens(
+      line.text,
+      identifiers,
+      keywords,
+    )) {
       ranges[token.kind].push(
         new vscode.Range(
           new vscode.Position(lineNumber, token.start),
