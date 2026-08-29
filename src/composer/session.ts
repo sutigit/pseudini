@@ -5,19 +5,37 @@ export interface ComposerRange {
   readonly endLineExclusive: number;
 }
 
+/**
+ * The document as it was before the composer touched it. Confirm and cancel
+ * rewind to this state so the whole interaction costs one undo step.
+ */
+export interface ComposerOrigin {
+  readonly text: string;
+  readonly anchorLine: number;
+}
+
 export interface ComposerSession {
   readonly documentUri: string;
   readonly phase: ComposerPhase;
   readonly range: ComposerRange;
   readonly contentRange: ComposerRange;
   readonly indentation: string;
+  readonly origin: ComposerOrigin;
 }
 
-export function createComposerSession(
-  documentUri: string,
-  startLine: number,
-  indentation: string,
-): ComposerSession {
+export interface ComposerOpening {
+  readonly documentUri: string;
+  readonly startLine: number;
+  readonly indentation: string;
+  readonly origin: ComposerOrigin;
+}
+
+export function createComposerSession({
+  documentUri,
+  startLine,
+  indentation,
+  origin,
+}: ComposerOpening): ComposerSession {
   return {
     documentUri,
     phase: "composing",
@@ -27,6 +45,7 @@ export function createComposerSession(
       endLineExclusive: startLine + 2,
     },
     indentation,
+    origin,
   };
 }
 

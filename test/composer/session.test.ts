@@ -10,18 +10,30 @@ import {
   updateComposerRange,
 } from "../../src/composer/session";
 
+const ORIGIN = { text: "function total() {\n}\n", anchorLine: 3 };
+
+function openSession(): ReturnType<typeof createComposerSession> {
+  return createComposerSession({
+    documentUri: "file:///example.ts",
+    startLine: 4,
+    indentation: "  ",
+    origin: ORIGIN,
+  });
+}
+
 test("creates a wrapped one-line composing session", () => {
-  assert.deepEqual(createComposerSession("file:///example.ts", 4, "  "), {
+  assert.deepEqual(openSession(), {
     documentUri: "file:///example.ts",
     phase: "composing",
     range: { startLine: 4, endLineExclusive: 7 },
     contentRange: { startLine: 5, endLineExclusive: 6 },
     indentation: "  ",
+    origin: ORIGIN,
   });
 });
 
 test("grows and shrinks the region for changes inside it", () => {
-  const initial = createComposerSession("file:///example.ts", 4, "  ");
+  const initial = openSession();
   const grown = updateComposerRange(initial, 5, 5, 3);
   assert.equal(grown?.range.endLineExclusive, 9);
   assert.equal(grown?.contentRange.endLineExclusive, 8);
@@ -32,26 +44,26 @@ test("grows and shrinks the region for changes inside it", () => {
 });
 
 test("rejects changes outside the editable content", () => {
-  const session = createComposerSession("file:///example.ts", 4, "  ");
+  const session = openSession();
   assert.equal(updateComposerRange(session, 4, 4, 1), undefined);
   assert.equal(updateComposerRange(session, 6, 6, 1), undefined);
   assert.notEqual(updateComposerRange(session, 5, 5, 1), undefined);
 });
 
 test("identifies only editable content lines", () => {
-  const session = createComposerSession("file:///example.ts", 4, "  ");
+  const session = openSession();
   assert.equal(isComposerContentLine(session, 4), false);
   assert.equal(isComposerContentLine(session, 5), true);
   assert.equal(isComposerContentLine(session, 6), false);
 });
 
 test("reports the hidden delimiter lines", () => {
-  const session = createComposerSession("file:///example.ts", 4, "  ");
+  const session = openSession();
   assert.deepEqual(readComposerWrapperLines(session), [4, 6]);
 });
 
 test("moves the caret off hidden delimiters into the content", () => {
-  const session = createComposerSession("file:///example.ts", 4, "  ");
+  const session = openSession();
   assert.deepEqual(clampToComposerContent(session, 4), {
     line: 5,
     edge: "start",
@@ -66,14 +78,14 @@ test("moves the caret off hidden delimiters into the content", () => {
 
 test("moves from composing to pending once", () => {
   const pending = beginGeneration(
-    createComposerSession("file:///example.ts", 4, "  "),
+    openSession(),
   );
   assert.equal(pending.phase, "pending");
   assert.throws(() => beginGeneration(pending), /already generating/);
 });
 
 test("adjusts both range boundaries after a foreign edit", () => {
-  const session = createComposerSession("file:///example.ts", 4, "  ");
+  const session = openSession();
   const adjusted = adjustComposerRange(session, 2, 3);
   assert.deepEqual(adjusted.range, {
     startLine: 6,

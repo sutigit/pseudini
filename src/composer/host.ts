@@ -5,6 +5,7 @@ import { getCommentWrapper } from "./commentSyntax";
 import { ComposerCompletionProvider } from "./completions";
 import { createComposerInstruction } from "./instructionAdapter";
 import {
+  createCodeInsertion,
   createRegionInsertion,
   readRegionText,
 } from "./region";
@@ -17,6 +18,7 @@ import {
   updateComposerRange,
 } from "./session";
 import { shouldTriggerComposerSuggestions } from "./suggestions";
+import { rewindDocumentText } from "./undoRewind";
 import { ComposerView } from "./view";
 
 const SUPPORTED_LANGUAGE_IDS = [
@@ -88,6 +90,10 @@ export class ComposerHost implements vscode.Disposable {
     if (!wrapper) {
       return;
     }
+    const origin = {
+      text: editor.document.getText(),
+      anchorLine: anchor.line,
+    };
     let applied = false;
     this.applyingEdit = true;
     try {
@@ -108,12 +114,12 @@ export class ComposerHost implements vscode.Disposable {
       throw new Error("Cursor could not open the Pseudini inline composer.");
     }
 
-    const startLine = anchor.line + 1;
-    this.session = createComposerSession(
-      editor.document.uri.toString(),
-      startLine,
+    this.session = createComposerSession({
+      documentUri: editor.document.uri.toString(),
+      startLine: anchor.line + 1,
       indentation,
-    );
+      origin,
+    });
     const position = new vscode.Position(
       this.session.contentRange.startLine,
       indentation.length,
@@ -155,7 +161,7 @@ export class ComposerHost implements vscode.Disposable {
           "The file changed while Pseudini was generating code. Run the command again.",
         );
       }
-      await this.replaceRegion(editor, code);
+      await this.applyGeneratedCode(editor, code);
       this.close(editor);
       void vscode.window.showInformationMessage(
         "Pseudini implemented the inline pseudocode.",
@@ -181,17 +187,14 @@ export class ComposerHost implements vscode.Disposable {
     }
 
     this.generationCancellation?.cancel();
-    const range = createRemovalRange(activeEditor.document, session);
-    this.close(activeEditor);
-    this.applyingEdit = true;
-    try {
-      await activeEditor.edit(
-        (editBuilder) => editBuilder.delete(range),
-        { undoStopBefore: true, undoStopAfter: true },
-      );
-    } finally {
-      this.applyingEdit = false;
+    if (
+      session.phase === "composing" &&
+      (await this.rewindToOrigin(activeEditor, session))
+    ) {
+      this.close(activeEditor);
+      return;
     }
+    await this.removeRegion(activeEditor, session);
   }
 
   public getSession(
@@ -208,6 +211,63 @@ export class ComposerHost implements vscode.Disposable {
     this.view.dispose();
     for (const disposable of this.disposables) {
       disposable.dispose();
+    }
+  }
+
+  /**
+   * Preferred path: drop the composer's own history, then add the generated
+   * code as the single undo step. Falls back to replacing the visible region
+   * when the history cannot be rewound.
+   */
+  private async applyGeneratedCode(
+    editor: vscode.TextEditor,
+    code: string,
+  ): Promise<void> {
+    const session = this.session;
+    if (!session) {
+      return;
+    }
+    if (await this.rewindToOrigin(editor, session)) {
+      await this.insertAtOrigin(editor, session, code);
+      return;
+    }
+    await this.replaceRegion(editor, code);
+  }
+
+  private async rewindToOrigin(
+    editor: vscode.TextEditor,
+    session: ComposerSession,
+  ): Promise<boolean> {
+    this.applyingEdit = true;
+    try {
+      return await rewindDocumentText(editor, session.origin.text);
+    } finally {
+      this.applyingEdit = false;
+    }
+  }
+
+  private async insertAtOrigin(
+    editor: vscode.TextEditor,
+    session: ComposerSession,
+    code: string,
+  ): Promise<void> {
+    const anchorLine = Math.min(
+      session.origin.anchorLine,
+      editor.document.lineCount - 1,
+    );
+    const anchor = editor.document.lineAt(anchorLine).range.end;
+    this.applyingEdit = true;
+    let applied = false;
+    try {
+      applied = await editor.edit(
+        (editBuilder) => editBuilder.insert(anchor, createCodeInsertion(code)),
+        { undoStopBefore: true, undoStopAfter: true },
+      );
+    } finally {
+      this.applyingEdit = false;
+    }
+    if (!applied) {
+      throw new Error("Cursor could not apply the generated code.");
     }
   }
 
@@ -231,6 +291,27 @@ export class ComposerHost implements vscode.Disposable {
     }
     if (!applied) {
       throw new Error("Cursor could not apply the generated code.");
+    }
+  }
+
+  /**
+   * Removal by forward edit. Used when the history is not ours to rewind,
+   * such as after an edit outside the region.
+   */
+  private async removeRegion(
+    editor: vscode.TextEditor,
+    session: ComposerSession,
+  ): Promise<void> {
+    const range = createRemovalRange(editor.document, session);
+    this.close(editor);
+    this.applyingEdit = true;
+    try {
+      await editor.edit((editBuilder) => editBuilder.delete(range), {
+        undoStopBefore: true,
+        undoStopAfter: true,
+      });
+    } finally {
+      this.applyingEdit = false;
     }
   }
 
@@ -295,12 +376,18 @@ export class ComposerHost implements vscode.Disposable {
       }
     }
 
-    this.session = adjustComposerRange(
+    const adjusted = adjustComposerRange(
       originalSession,
       beforeDelta,
       beforeDelta + insideDelta,
     );
-    void this.cancel(this.findSessionEditor());
+    this.session = adjusted;
+    const editor = this.findSessionEditor();
+    if (!editor) {
+      this.close();
+      return;
+    }
+    void this.removeRegion(editor, adjusted);
   }
 
   private handleWillSave(event: vscode.TextDocumentWillSaveEvent): void {

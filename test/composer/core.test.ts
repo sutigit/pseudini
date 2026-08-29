@@ -5,6 +5,7 @@ import { scanIdentifiers } from "../../src/composer/identifierScan";
 import { createComposerInstruction } from "../../src/composer/instructionAdapter";
 import { getLanguageKeywords } from "../../src/composer/languagePack";
 import {
+  createCodeInsertion,
   createRegionInsertion,
   readRegionText,
 } from "../../src/composer/region";
@@ -25,9 +26,18 @@ test("creates and reads an indented growing region", () => {
   );
 });
 
+test("places generated code on its own line after the anchor", () => {
+  assert.equal(createCodeInsertion("  return total;"), "\n  return total;");
+});
+
 test("maps a composer session to one ordered instruction", () => {
   const session = {
-    ...createComposerSession("file:///example.ts", 3, "  "),
+    ...createComposerSession({
+      documentUri: "file:///example.ts",
+      startLine: 3,
+      indentation: "  ",
+      origin: { text: "function total() {\n}\n", anchorLine: 2 },
+    }),
     range: { startLine: 3, endLineExclusive: 6 },
   };
   assert.deepEqual(createComposerInstruction(session, "  return the total  "), {

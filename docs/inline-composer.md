@@ -32,7 +32,8 @@ diagnostics remain active outside the region.
 ## Goal
 
 The developer types the idea in the file. The existing local generation path writes syntax for
-that file. One confirm produces one undoable replacement of the composer region.
+that file. One confirm produces one undoable step: `Undo` returns the file to the state it had
+before the input opened.
 
 Non-goals:
 
@@ -101,6 +102,8 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
 | `completions.ts` | `CompletionItemProvider` that no-ops unless the caret is inside the active region | Session phase transitions |
+| `undoHistory.ts` | Pure rule for when an undo replay has restored the origin or run out of stack | VS Code, editors |
+| `undoRewind.ts` | Replays the editor `undo` command, and `redo` when the rewind fails | Session state, generation |
 
 `generationService`, `fileContext`, `prompt`, `requestPlanner`, `indentation`,
 `replacementMerger`, and the document-version abort stay where they are. The composer calls them.
@@ -115,6 +118,7 @@ ComposerSession
   indent              -- taken from the caret line when the region opens
   range               -- wrapper start through wrapper end, exclusive
   contentRange        -- editable pseudocode lines only, exclusive
+  origin              -- document text and anchor line from before the region existed
 ```
 
 Allowed transitions: `idle -> composing -> pending -> idle`, and `composing -> idle` on cancel.
@@ -132,11 +136,26 @@ input box instead of a comment. Because the marks are invisible, the host moves 
 on a delimiter line back into `contentRange`. That selection guard is what keeps the hidden marks
 unmodifiable; the delimiter lines therefore render as blank rows above and below the draft.
 
-Replace-on-confirm deletes `range` and inserts the indented model output in one `editor.edit`.
-That edit is the one undoable generation result. User keystrokes while composing are normal
-editor undos. Do not try to glue typing and generation into one undo stop.
+### Undo
 
-Cancel removes the complete temporary wrapper range in one edit.
+One `Undo` must return the file to the state it had before the region opened. The editor API cannot
+prune or merge undo stops, so the composer replays the editor's own `undo` command until the buffer
+matches `origin.text`, then inserts the generated code after `origin.anchorLine` with
+`undoStopBefore`. The result is a single undo step for the whole interaction. Cancel uses the same
+rewind, so a cancelled draft leaves no history at all.
+
+The rewind is only safe for edits the composer made itself:
+
+- Explicit cancel while `composing`, and confirm success, rewind.
+- Everything else removes the region with a forward delete edit (`removeRegion`). That covers an
+  edit outside the region, a change during `pending`, and a failed generation, where an undo replay
+  would discard the developer's own edit.
+
+`rewindDocumentText` replays `redo` for every `undo` it made when it cannot reach `origin.text`, so
+a failed rewind never leaves a half-restored file. The caller then falls back to replacing the
+visible region.
+
+Cancel by forward edit removes the complete temporary wrapper range in one edit.
 
 ### Synthetic instruction
 
@@ -263,7 +282,7 @@ latency, models, or fixtures.
 | ---- | -------- |
 | Free prose produces static syntax diagnostics | Keep it inside temporary comment wrappers |
 | A typed closing delimiter ends a block comment | Treat delimiter edits as session cancellation |
-| Two undo stops (open region, then generate) | Document as intended. Generation replace is the invariant undo |
+| Typing history leaves many undo stops | Replay `undo` to `origin.text` before the generated insert; `redo` back and fall back when that fails |
 | Native comment color hides useful names | Overlay only known identifiers and language keywords |
 | `buildFileContext` includes the draft | Measure; strip later in `fileContext` only if it causes copy-back |
 | Decoration APIs differ from the canvas | Slice 2 is a live F5 check, not a canvas check |

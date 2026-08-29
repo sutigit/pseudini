@@ -8,7 +8,8 @@ developer responsible for the implementation idea while the AI supplies language
 Run **Pseudini: Write Pseudocode** with the caret on the line before the new code. Pseudini opens
 an indented input region in the active file. Type the implementation idea, then press
 **Cmd+Enter** on macOS or **Ctrl+Enter** elsewhere. Press **Escape** to cancel. Pseudini replaces
-the region with one undoable generated edit.
+the region with generated code. One **Undo** returns the file to the state it had before the input
+opened, including the pseudocode you typed. Escape leaves no undo history.
 
 The inline input supports TypeScript, JavaScript, JSX, TSX, HTML, and CSS. It suggests identifiers
 from the active file and language keywords. Suggestions open as you type a word. Temporary

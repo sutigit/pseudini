@@ -12,6 +12,10 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 - The inline input hides its comment wrapper marks and keeps the caret inside the writable lines,
   so the marks cannot be edited.
+- One `Undo` after an inline confirm restores the file as it was before the input opened. The
+  composer replays the editor undo command to drop its own typing history, then applies the
+  generated code as a single step. Cancel leaves no undo history. Edits outside the region still use
+  a forward delete, because replaying undo there would discard the developer's own edit.
 
 ### Fixed
 
