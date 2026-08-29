@@ -11,8 +11,11 @@ an indented input region in the active file. Type the implementation idea, then 
 the region with one undoable generated edit.
 
 The inline input supports TypeScript, JavaScript, JSX, TSX, HTML, and CSS. It suggests identifiers
-from the active file and language keywords. Pseudini cancels the input before a save so plain
-pseudocode is not written to disk. The open command has no default keybinding.
+from the active file and language keywords. Suggestions open as you type a word. Temporary
+language-specific comment wrappers keep free-form input out of static syntax diagnostics. The
+wrapper marks are hidden from view, and the caret stays inside the writable lines so you cannot
+edit them. Pseudini removes the wrappers on confirm or
+cancel, and cancels the input before a save. The open command has no default keybinding.
 
 The `aime:` comment workflow remains available:
 

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
-import { ComposerSession } from "./session";
+import { ComposerSession, isComposerContentLine } from "./session";
 import { createSuggestions } from "./suggestions";
 
 export type SessionReader = (
@@ -18,7 +18,7 @@ export class ComposerCompletionProvider
     position: vscode.Position,
   ): vscode.CompletionItem[] {
     const session = this.readSession(document);
-    if (!session || !containsLine(session, position.line)) {
+    if (!session || !isComposerContentLine(session, position.line)) {
       return [];
     }
 
@@ -46,11 +46,4 @@ export class ComposerCompletionProvider
       return item;
     });
   }
-}
-
-function containsLine(session: ComposerSession, line: number): boolean {
-  return (
-    line >= session.range.startLine &&
-    line < session.range.endLineExclusive
-  );
 }

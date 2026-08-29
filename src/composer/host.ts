@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AimeInstruction } from "../commentParser";
 import { readIndentation } from "../indentation";
+import { getCommentWrapper } from "./commentSyntax";
 import { ComposerCompletionProvider } from "./completions";
 import { createComposerInstruction } from "./instructionAdapter";
 import {
@@ -10,10 +11,12 @@ import {
 import {
   adjustComposerRange,
   beginGeneration,
+  clampToComposerContent,
   ComposerSession,
   createComposerSession,
   updateComposerRange,
 } from "./session";
+import { shouldTriggerComposerSuggestions } from "./suggestions";
 import { ComposerView } from "./view";
 
 const SUPPORTED_LANGUAGE_IDS = [
@@ -55,6 +58,9 @@ export class ComposerHost implements vscode.Disposable {
         }
       }),
       vscode.window.onDidChangeActiveTextEditor(() => this.refreshView()),
+      vscode.window.onDidChangeTextEditorSelection((event) =>
+        this.keepCaretInContent(event.textEditor),
+      ),
       vscode.languages.registerCompletionItemProvider(
         SUPPORTED_LANGUAGE_IDS.map((language) => ({ language })),
         completionProvider,
@@ -78,6 +84,10 @@ export class ComposerHost implements vscode.Disposable {
 
     const anchor = editor.selection.active;
     const indentation = readComposerIndentation(editor, anchor.line);
+    const wrapper = getCommentWrapper(editor.document.languageId);
+    if (!wrapper) {
+      return;
+    }
     let applied = false;
     this.applyingEdit = true;
     try {
@@ -85,7 +95,7 @@ export class ComposerHost implements vscode.Disposable {
         (editBuilder) => {
           editBuilder.insert(
             editor.document.lineAt(anchor.line).range.end,
-            createRegionInsertion(indentation),
+            createRegionInsertion(indentation, wrapper),
           );
         },
         { undoStopBefore: true, undoStopAfter: true },
@@ -104,7 +114,10 @@ export class ComposerHost implements vscode.Disposable {
       startLine,
       indentation,
     );
-    const position = new vscode.Position(startLine, indentation.length);
+    const position = new vscode.Position(
+      this.session.contentRange.startLine,
+      indentation.length,
+    );
     editor.selection = new vscode.Selection(position, position);
     editor.revealRange(new vscode.Range(position, position));
     this.view.show(editor, this.session);
@@ -117,7 +130,7 @@ export class ComposerHost implements vscode.Disposable {
     }
     const pseudocode = readRegionText(
       editor.document.getText().split(/\r?\n/),
-      session.range,
+      session.contentRange,
       session.indentation,
     );
     if (!pseudocode.trim()) {
@@ -247,6 +260,9 @@ export class ComposerHost implements vscode.Disposable {
     }
     this.session = nextSession;
     this.refreshView();
+    if (event.contentChanges.some((change) => shouldTriggerComposerSuggestions(change.text))) {
+      void vscode.commands.executeCommand("editor.action.triggerSuggest");
+    }
   }
 
   private handleForeignChange(
@@ -297,6 +313,23 @@ export class ComposerHost implements vscode.Disposable {
     const removal = createRemovalRange(event.document, session);
     event.waitUntil(Promise.resolve([vscode.TextEdit.delete(removal)]));
     this.close(editor);
+  }
+
+  private keepCaretInContent(editor: vscode.TextEditor): void {
+    const session = this.getSession(editor.document);
+    if (!session || session.phase !== "composing" || this.applyingEdit) {
+      return;
+    }
+    const target = clampToComposerContent(session, editor.selection.active.line);
+    if (!target) {
+      return;
+    }
+    const line = editor.document.lineAt(target.line);
+    const position =
+      target.edge === "start"
+        ? new vscode.Position(target.line, line.firstNonWhitespaceCharacterIndex)
+        : line.range.end;
+    editor.selection = new vscode.Selection(position, position);
   }
 
   private refreshView(): void {

@@ -1,6 +1,11 @@
 import * as vscode from "vscode";
+import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
-import { ComposerSession } from "./session";
+import { ComposerSession, readComposerWrapperLines } from "./session";
+import {
+  classifyComposerTokens,
+  ComposerTokenKind,
+} from "./tokenClassifier";
 
 const PLACEHOLDER = "describe the change";
 
@@ -17,6 +22,16 @@ export class ComposerView implements vscode.Disposable {
   });
   private readonly keywordDecoration = vscode.window.createTextEditorDecorationType({
     color: new vscode.ThemeColor("symbolIcon.keywordForeground"),
+  });
+  private readonly identifierDecoration =
+    vscode.window.createTextEditorDecorationType({
+      color: new vscode.ThemeColor("symbolIcon.variableForeground"),
+    });
+  // The delimiters must stay in the buffer to keep parsers quiet, but the
+  // developer should see an input box, not a comment.
+  private readonly wrapperDecoration = vscode.window.createTextEditorDecorationType({
+    color: "transparent",
+    letterSpacing: "-0.5em",
   });
   private readonly placeholderDecoration = vscode.window.createTextEditorDecorationType({
     after: {
@@ -36,16 +51,25 @@ export class ComposerView implements vscode.Disposable {
 
   public show(editor: vscode.TextEditor, session: ComposerSession): void {
     const region = toEditorRange(editor.document, session);
+    const tokenRanges = createTokenRanges(editor.document, session);
     editor.setDecorations(this.regionDecoration, [region]);
     editor.setDecorations(this.dimDecoration, createDimRanges(editor.document, session));
     editor.setDecorations(
       this.keywordDecoration,
-      createKeywordRanges(editor.document, session),
+      tokenRanges.keyword,
+    );
+    editor.setDecorations(
+      this.identifierDecoration,
+      tokenRanges.identifier,
+    );
+    editor.setDecorations(
+      this.wrapperDecoration,
+      createWrapperRanges(editor.document, session),
     );
     editor.setDecorations(
       this.placeholderDecoration,
       isRegionEmpty(editor.document, session)
-        ? [editor.document.lineAt(session.range.startLine).range]
+        ? [editor.document.lineAt(session.contentRange.startLine).range]
         : [],
     );
     this.status.text =
@@ -61,6 +85,8 @@ export class ComposerView implements vscode.Disposable {
       editor.setDecorations(this.regionDecoration, []);
       editor.setDecorations(this.dimDecoration, []);
       editor.setDecorations(this.keywordDecoration, []);
+      editor.setDecorations(this.identifierDecoration, []);
+      editor.setDecorations(this.wrapperDecoration, []);
       editor.setDecorations(this.placeholderDecoration, []);
     }
     this.status.hide();
@@ -72,6 +98,8 @@ export class ComposerView implements vscode.Disposable {
     this.regionDecoration.dispose();
     this.dimDecoration.dispose();
     this.keywordDecoration.dispose();
+    this.identifierDecoration.dispose();
+    this.wrapperDecoration.dispose();
     this.placeholderDecoration.dispose();
     this.status.dispose();
   }
@@ -112,27 +140,28 @@ function createDimRanges(
   return ranges;
 }
 
-function createKeywordRanges(
+function createTokenRanges(
   document: vscode.TextDocument,
   session: ComposerSession,
-): readonly vscode.Range[] {
+): Record<ComposerTokenKind, vscode.Range[]> {
+  const identifiers = new Set(scanIdentifiers(document.getText(), session.range));
   const keywords = new Set(getLanguageKeywords(document.languageId));
-  const ranges: vscode.Range[] = [];
+  const ranges: Record<ComposerTokenKind, vscode.Range[]> = {
+    identifier: [],
+    keyword: [],
+  };
 
   for (
-    let lineNumber = session.range.startLine;
-    lineNumber < session.range.endLineExclusive;
+    let lineNumber = session.contentRange.startLine;
+    lineNumber < session.contentRange.endLineExclusive;
     lineNumber += 1
   ) {
     const line = document.lineAt(lineNumber);
-    for (const match of line.text.matchAll(/[A-Za-z_$][\w$]*/g)) {
-      if (!keywords.has(match[0]) || match.index === undefined) {
-        continue;
-      }
-      ranges.push(
+    for (const token of classifyComposerTokens(line.text, identifiers, keywords)) {
+      ranges[token.kind].push(
         new vscode.Range(
-          new vscode.Position(lineNumber, match.index),
-          new vscode.Position(lineNumber, match.index + match[0].length),
+          new vscode.Position(lineNumber, token.start),
+          new vscode.Position(lineNumber, token.end),
         ),
       );
     }
@@ -145,8 +174,8 @@ function isRegionEmpty(
   session: ComposerSession,
 ): boolean {
   for (
-    let line = session.range.startLine;
-    line < session.range.endLineExclusive;
+    let line = session.contentRange.startLine;
+    line < session.contentRange.endLineExclusive;
     line += 1
   ) {
     if (document.lineAt(line).text.trim()) {
@@ -154,4 +183,17 @@ function isRegionEmpty(
     }
   }
   return true;
+}
+
+function createWrapperRanges(
+  document: vscode.TextDocument,
+  session: ComposerSession,
+): readonly vscode.Range[] {
+  return readComposerWrapperLines(session).map((lineNumber) => {
+    const line = document.lineAt(lineNumber);
+    return new vscode.Range(
+      new vscode.Position(lineNumber, line.firstNonWhitespaceCharacterIndex),
+      line.range.end,
+    );
+  });
 }

@@ -14,7 +14,7 @@ These match the prototype knobs that passed review. Do not reopen them without a
 | Knob | Choice |
 | ---- | ------ |
 | Host | Real lines in the active editor, under the caret |
-| Region kind | Plain lines (not comments, not a scratch buffer, not a webview) |
+| Region kind | Comment-backed lines (not a scratch buffer or webview) |
 | Size | Region grows as the developer types new lines |
 | Result | Replace the region with generated code |
 | Suggestions | On: prefix match from the active file plus a language keyword pack |
@@ -24,9 +24,10 @@ These match the prototype knobs that passed review. Do not reopen them without a
 | Open keybinding | Not shipped. User binds **Pseudini: Write pseudocode** |
 | Existing command | **Flesh Out aime: Comments** stays |
 
-The public VS Code API has no editor zone widget and no inline webview. The composer therefore
-inserts real lines at the caret and decorates them. That is the shippable mechanic, not a demo
-shortcut.
+The public VS Code API has no editor zone widget, inline webview, or way to suppress another
+provider's diagnostics for one range. The composer inserts real lines at the caret and wraps them
+in temporary language-specific comments. This keeps free prose out of static parsing while normal
+diagnostics remain active outside the region.
 
 ## Goal
 
@@ -91,9 +92,11 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | ------ | ---- | ------------ |
 | `session.ts` | Phase (`idle` / `composing` / `pending`), region start, line count, indent string, snapshot of the pre-open buffer | VS Code, decorations, HTTP |
 | `region.ts` | Pure edits: insert opening line, grow/shrink line count, restore snapshot, replace range with code | When to confirm, how code is generated |
+| `commentSyntax.ts` | Comment wrapper delimiters for each supported language id | Editor edits, decorations |
 | `languagePack.ts` | Map `languageId` to a keyword list | Completions UI, session |
 | `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
 | `identifierScan.ts` | Cheap identifier list from document text, excluding the region | Language-server results, network |
+| `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words | Grammar parsing, theme colors |
 | `instructionAdapter.ts` | Map session draft + range to one `AimeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
@@ -110,9 +113,8 @@ ComposerSession
   uri
   phase
   indent              -- taken from the caret line when the region opens
-  range               -- start line, exclusive end line, 0-based
-  preOpenLines        -- snapshot for Escape
-  openedAtVersion     -- document.version at insert
+  range               -- wrapper start through wrapper end, exclusive
+  contentRange        -- editable pseudocode lines only, exclusive
 ```
 
 Allowed transitions: `idle -> composing -> pending -> idle`, and `composing -> idle` on cancel.
@@ -120,14 +122,21 @@ Allowed transitions: `idle -> composing -> pending -> idle`, and `composing -> i
 
 ### Region math
 
-Opening inserts one empty line after the caret, indented with `indent`. Typing extra newlines
-grows `range`. Backspacing the last composer line does not close the session; `Escape` does.
+Opening inserts an opening delimiter, one empty content line, and a closing delimiter after the
+caret. TypeScript, JavaScript, and CSS use `/* ... */`; JSX and TSX use `{/* ... */}`; HTML uses
+`<!-- ... -->`. Typing extra newlines grows `contentRange` and `range`. Edits to a delimiter
+cancel the session.
+
+The delimiters are painted transparent with collapsed letter spacing, so the region reads as an
+input box instead of a comment. Because the marks are invisible, the host moves a caret that lands
+on a delimiter line back into `contentRange`. That selection guard is what keeps the hidden marks
+unmodifiable; the delimiter lines therefore render as blank rows above and below the draft.
 
 Replace-on-confirm deletes `range` and inserts the indented model output in one `editor.edit`.
 That edit is the one undoable generation result. User keystrokes while composing are normal
 editor undos. Do not try to glue typing and generation into one undo stop.
 
-Cancel restores `preOpenLines` for that span in one edit.
+Cancel removes the complete temporary wrapper range in one edit.
 
 ### Synthetic instruction
 
@@ -149,13 +158,15 @@ Word count for `largeRequestRoute` uses the draft, same 50-word rule as comments
 ### Completions and highlight
 
 Suggestions are prefix-based and case-insensitive. Sources, in order: identifiers from the active
-file outside the region, then keywords from the pack. No extra network calls. A later slice may
-add language-server items because the text lives in a real document; keep that behind the
-completions module so the session does not learn about `vscode.languages`.
+file outside the wrapper, then keywords from the pack. No extra network calls. Comment wrappers
+disable the editor's automatic suggestion trigger, so the host opens the widget after a typed
+word character.
 
-Keyword coloring in the region is a decoration overlay on pack words, not a full grammar. Native
-`languageId` coloring of the rest of the file stays as Cursor paints it. The overlay exists
-because a TS grammar colors identifiers and strings in ways that fight prose.
+Coloring is deterministic token decoration, not grammar parsing. Exact, case-sensitive identifiers
+found outside the wrapper use `symbolIcon.variableForeground`. Language-pack keywords use
+`symbolIcon.keywordForeground`. All other prose keeps the normal comment color. The active
+document language does not change. Copying a region line copies the real delimiter text, because
+hiding is decoration only.
 
 ### Dimming and chrome
 
@@ -173,13 +184,12 @@ the right of the line or in the status bar. Do not cover the caret.
 [`ensureDocumentUnchanged`](../src/extension.ts) aborts `aime:` if any edit happens during
 generation. The composer must treat in-region typing as owned edits.
 
-- **Composing:** apply `workspace.onDidChangeTextDocument`. If every change is inside `range`
-  (including newline growth at the range end), update `range` and keep going. If any change
-  touches lines outside the region, cancel and restore `preOpenLines`.
+- **Composing:** apply `workspace.onDidChangeTextDocument`. If every change is inside
+  `contentRange` (including newline growth at its end), update both ranges and keep going. If any
+  change touches wrapper delimiters or lines outside the region, cancel and remove the wrapper.
 - **Pending:** ignore further typed input (read-only on the region via `Type` override, or cancel
   on any change). If `document.version` moves without a session-owned edit, abort and restore.
-- **Save while composing:** cancel and restore. Plain lines in a saved file would break the
-  buffer. This is the main cost of "plain lines" versus comments.
+- **Save while composing:** cancel and remove the wrapper before the save completes.
 
 ### Keybindings and context
 
@@ -251,9 +261,10 @@ latency, models, or fixtures.
 
 | Risk | Handling |
 | ---- | -------- |
-| Plain lines break parse and the language server while composing | Cancel on save; Escape restores; keep sessions short |
+| Free prose produces static syntax diagnostics | Keep it inside temporary comment wrappers |
+| A typed closing delimiter ends a block comment | Treat delimiter edits as session cancellation |
 | Two undo stops (open region, then generate) | Document as intended. Generation replace is the invariant undo |
-| Full TS grammar noise in the region | Keyword overlay only; do not change `languageId` |
+| Native comment color hides useful names | Overlay only known identifiers and language keywords |
 | `buildFileContext` includes the draft | Measure; strip later in `fileContext` only if it causes copy-back |
 | Decoration APIs differ from the canvas | Slice 2 is a live F5 check, not a canvas check |
 | `document.version` during pending | Session-owned vs foreign edits; abort foreign |

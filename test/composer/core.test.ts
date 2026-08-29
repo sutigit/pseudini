@@ -1,17 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { getCommentWrapper } from "../../src/composer/commentSyntax";
 import { scanIdentifiers } from "../../src/composer/identifierScan";
 import { createComposerInstruction } from "../../src/composer/instructionAdapter";
 import { getLanguageKeywords } from "../../src/composer/languagePack";
 import {
   createRegionInsertion,
-  createRegionReplacement,
   readRegionText,
 } from "../../src/composer/region";
 import { createComposerSession } from "../../src/composer/session";
+import { classifyComposerTokens } from "../../src/composer/tokenClassifier";
 
 test("creates and reads an indented growing region", () => {
-  assert.equal(createRegionInsertion("  "), "\n  ");
+  const wrapper = getCommentWrapper("typescript");
+  assert.ok(wrapper);
+  assert.equal(createRegionInsertion("  ", wrapper), "\n  /*\n  \n  */");
   assert.equal(
     readRegionText(
       ["function total() {", "  sum every line", "  then return it", "}"],
@@ -20,19 +23,34 @@ test("creates and reads an indented growing region", () => {
     ),
     "sum every line\nthen return it",
   );
-  assert.equal(createRegionReplacement("  return total;"), "\n  return total;");
 });
 
 test("maps a composer session to one ordered instruction", () => {
   const session = {
     ...createComposerSession("file:///example.ts", 3, "  "),
-    range: { startLine: 3, endLineExclusive: 5 },
+    range: { startLine: 3, endLineExclusive: 6 },
   };
   assert.deepEqual(createComposerInstruction(session, "  return the total  "), {
     line: 3,
-    endLine: 4,
+    endLine: 5,
     pseudocode: "return the total",
   });
+});
+
+test("maps supported languages to parser-safe comment wrappers", () => {
+  assert.deepEqual(getCommentWrapper("javascript"), {
+    opening: "/*",
+    closing: "*/",
+  });
+  assert.deepEqual(getCommentWrapper("typescriptreact"), {
+    opening: "{/*",
+    closing: "*/}",
+  });
+  assert.deepEqual(getCommentWrapper("html"), {
+    opening: "<!--",
+    closing: "-->",
+  });
+  assert.equal(getCommentWrapper("python"), undefined);
 });
 
 test("scans identifiers outside the composer region", () => {
@@ -50,4 +68,26 @@ test("loads keyword packs by language id", () => {
   assert.equal(getLanguageKeywords("html").includes("section"), true);
   assert.equal(getLanguageKeywords("css").includes("display"), true);
   assert.deepEqual(getLanguageKeywords("python"), []);
+});
+
+test("classifies reserved words and known file identifiers without parsing prose", () => {
+  assert.deepEqual(
+    classifyComposerTokens(
+      "if orderTotal changes then return newName",
+      new Set(["orderTotal"]),
+      new Set(["if", "return"]),
+    ),
+    [
+      { start: 0, end: 2, kind: "keyword" },
+      { start: 3, end: 13, kind: "identifier" },
+      { start: 27, end: 33, kind: "keyword" },
+    ],
+  );
+});
+
+test("gives reserved words priority over scanned identifiers", () => {
+  assert.deepEqual(
+    classifyComposerTokens("return", new Set(["return"]), new Set(["return"])),
+    [{ start: 0, end: 6, kind: "keyword" }],
+  );
 });

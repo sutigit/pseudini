@@ -32,3 +32,8 @@ export function createSuggestions(
 
   return suggestions;
 }
+
+/** Comments suppress editor.quickSuggestions. Open the widget after a typed word. */
+export function shouldTriggerComposerSuggestions(insertedText: string): boolean {
+  return !insertedText.includes("\n") && /[A-Za-z_$]$/.test(insertedText);
+}

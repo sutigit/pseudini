@@ -6,6 +6,18 @@ This file records major changes to Pseudini. Usage, settings, and current limits
 
 The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
+## 2026-08-29
+
+### Changed
+
+- The inline input hides its comment wrapper marks and keeps the caret inside the writable lines,
+  so the marks cannot be edited.
+
+### Fixed
+
+- Inline input opens identifier and keyword suggestions while typing. Comment wrappers had
+  suppressed the editor's automatic IntelliSense trigger.
+
 ## 2026-08-28
 
 ### Added
@@ -15,6 +27,13 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
   and language keywords, and replaces itself through the existing generation path.
 - **Pseudini: Write Pseudocode**, with **Cmd+Enter** / **Ctrl+Enter** to confirm and **Escape** to
   cancel. The open command has no default keybinding.
+
+### Changed
+
+- Inline input now uses temporary language-specific comment wrappers. Free-form pseudocode no
+  longer produces static syntax errors, while diagnostics outside the input remain active.
+- Reserved words and identifiers already present in the active file receive separate,
+  deterministic colors without parsing the pseudocode as code.
 
 ## 2026-08-27
 

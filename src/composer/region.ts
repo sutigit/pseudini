@@ -1,3 +1,4 @@
+import { CommentWrapper } from "./commentSyntax";
 import { ComposerRange } from "./session";
 
 export function readRegionText(
@@ -11,14 +12,16 @@ export function readRegionText(
     .join("\n");
 }
 
-export function createRegionInsertion(indentation: string): string {
-  return `\n${indentation}`;
-}
-
-export function createRegionReplacement(
-  generatedCode: string,
+export function createRegionInsertion(
+  indentation: string,
+  wrapper: CommentWrapper,
 ): string {
-  return `\n${generatedCode}`;
+  return [
+    "",
+    `${indentation}${wrapper.opening}`,
+    indentation,
+    `${indentation}${wrapper.closing}`,
+  ].join("\n");
 }
 
 function stripIndentation(line: string, indentation: string): string {
