@@ -2,7 +2,12 @@ import * as vscode from "vscode";
 import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
-import { classifyComposerTokens, ComposerTokenKind } from "./tokenClassifier";
+import {
+  classifyComposerTokens,
+  ComposerTokenKind,
+  ComposerTokenSpan,
+  findUnclassifiedSpans,
+} from "./tokenClassifier";
 
 const PLACEHOLDER = "describe the change | esc cancels | pseudini ⌘⏎";
 
@@ -20,13 +25,22 @@ export class ComposerView implements vscode.Disposable {
       opacity: "0.4",
     },
   );
+  // Covers only the draft text that is neither a keyword nor a known name.
+  // Overlapping colour decorations would fight, so the ranges stay disjoint.
+  private readonly plainDecoration =
+    vscode.window.createTextEditorDecorationType({
+      color: new vscode.ThemeColor("editor.foreground"),
+      fontStyle: "normal",
+    });
   private readonly keywordDecoration =
     vscode.window.createTextEditorDecorationType({
       color: new vscode.ThemeColor("symbolIcon.keywordForeground"),
+      fontStyle: "normal",
     });
   private readonly identifierDecoration =
     vscode.window.createTextEditorDecorationType({
       color: new vscode.ThemeColor("symbolIcon.variableForeground"),
+      fontStyle: "normal",
     });
   // The delimiters must stay in the buffer to keep parsers quiet, but the
   // developer should see an input box, not a comment.
@@ -54,14 +68,15 @@ export class ComposerView implements vscode.Disposable {
 
   public show(editor: vscode.TextEditor, session: ComposerSession): void {
     const region = toEditorRange(editor.document, session);
-    const tokenRanges = createTokenRanges(editor.document, session);
+    const draftRanges = createDraftRanges(editor.document, session);
     editor.setDecorations(this.regionDecoration, [region]);
     editor.setDecorations(
       this.dimDecoration,
       createDimRanges(editor.document, session),
     );
-    editor.setDecorations(this.keywordDecoration, tokenRanges.keyword);
-    editor.setDecorations(this.identifierDecoration, tokenRanges.identifier);
+    editor.setDecorations(this.plainDecoration, draftRanges.plain);
+    editor.setDecorations(this.keywordDecoration, draftRanges.keyword);
+    editor.setDecorations(this.identifierDecoration, draftRanges.identifier);
     editor.setDecorations(
       this.wrapperDecoration,
       createWrapperRanges(editor.document, session),
@@ -88,6 +103,7 @@ export class ComposerView implements vscode.Disposable {
     if (editor) {
       editor.setDecorations(this.regionDecoration, []);
       editor.setDecorations(this.dimDecoration, []);
+      editor.setDecorations(this.plainDecoration, []);
       editor.setDecorations(this.keywordDecoration, []);
       editor.setDecorations(this.identifierDecoration, []);
       editor.setDecorations(this.wrapperDecoration, []);
@@ -105,6 +121,7 @@ export class ComposerView implements vscode.Disposable {
     this.clear();
     this.regionDecoration.dispose();
     this.dimDecoration.dispose();
+    this.plainDecoration.dispose();
     this.keywordDecoration.dispose();
     this.identifierDecoration.dispose();
     this.wrapperDecoration.dispose();
@@ -148,18 +165,22 @@ function createDimRanges(
   return ranges;
 }
 
-function createTokenRanges(
+type DraftRanges = Record<ComposerTokenKind | "plain", vscode.Range[]>;
+
+/**
+ * Splits the draft into three groups that never overlap: keywords, known names,
+ * and everything else. The draft is comment text, so the third group carries the
+ * normal foreground that the comment style would otherwise dim.
+ */
+function createDraftRanges(
   document: vscode.TextDocument,
   session: ComposerSession,
-): Record<ComposerTokenKind, vscode.Range[]> {
+): DraftRanges {
   const identifiers = new Set(
     scanIdentifiers(document.getText(), session.range),
   );
   const keywords = new Set(getLanguageKeywords(document.languageId));
-  const ranges: Record<ComposerTokenKind, vscode.Range[]> = {
-    identifier: [],
-    keyword: [],
-  };
+  const ranges: DraftRanges = { identifier: [], keyword: [], plain: [] };
 
   for (
     let lineNumber = session.contentRange.startLine;
@@ -167,20 +188,25 @@ function createTokenRanges(
     lineNumber += 1
   ) {
     const line = document.lineAt(lineNumber);
-    for (const token of classifyComposerTokens(
-      line.text,
-      identifiers,
-      keywords,
-    )) {
-      ranges[token.kind].push(
-        new vscode.Range(
-          new vscode.Position(lineNumber, token.start),
-          new vscode.Position(lineNumber, token.end),
-        ),
-      );
+    const tokens = classifyComposerTokens(line.text, identifiers, keywords);
+    for (const token of tokens) {
+      ranges[token.kind].push(toLineRange(lineNumber, token));
+    }
+    for (const span of findUnclassifiedSpans(line.text.length, tokens)) {
+      ranges.plain.push(toLineRange(lineNumber, span));
     }
   }
   return ranges;
+}
+
+function toLineRange(
+  lineNumber: number,
+  span: ComposerTokenSpan,
+): vscode.Range {
+  return new vscode.Range(
+    new vscode.Position(lineNumber, span.start),
+    new vscode.Position(lineNumber, span.end),
+  );
 }
 
 function isRegionEmpty(

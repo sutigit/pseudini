@@ -97,7 +97,7 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `languagePack.ts` | Map `languageId` to a keyword list | Completions UI, session |
 | `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
 | `identifierScan.ts` | Cheap identifier list from document text, excluding the region | Language-server results, network |
-| `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words | Grammar parsing, theme colors |
+| `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words, and the unclassified gaps between them | Grammar parsing, theme colors |
 | `instructionAdapter.ts` | Map session draft + range to one `AimeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
@@ -181,11 +181,19 @@ file outside the wrapper, then keywords from the pack. No extra network calls. C
 disable the editor's automatic suggestion trigger, so the host opens the widget after a typed
 word character.
 
-Coloring is deterministic token decoration, not grammar parsing. Exact, case-sensitive identifiers
-found outside the wrapper use `symbolIcon.variableForeground`. Language-pack keywords use
-`symbolIcon.keywordForeground`. All other prose keeps the normal comment color. The active
-document language does not change. Copying a region line copies the real delimiter text, because
-hiding is decoration only.
+Coloring is deterministic token decoration, not grammar parsing. Each content line is split into
+three groups of ranges that never overlap, because two colour decorations over the same characters
+leave the winner to the editor and the keyword colour loses:
+
+1. `symbolIcon.keywordForeground` for language-pack keywords.
+2. `symbolIcon.variableForeground` for exact, case-sensitive identifiers found outside the wrapper.
+3. `editor.foreground` for the remaining offsets, from `findUnclassifiedSpans`.
+
+All three also set `fontStyle: "normal"`, since every group would otherwise inherit the italic
+comment style.
+
+The active document language does not change. Copying a region line copies the real delimiter text,
+because hiding is decoration only.
 
 ### Dimming and chrome
 

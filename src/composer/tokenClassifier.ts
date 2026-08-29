@@ -1,8 +1,11 @@
 export type ComposerTokenKind = "identifier" | "keyword";
 
-export interface ComposerToken {
+export interface ComposerTokenSpan {
   readonly start: number;
   readonly end: number;
+}
+
+export interface ComposerToken extends ComposerTokenSpan {
   readonly kind: ComposerTokenKind;
 }
 
@@ -34,4 +37,29 @@ export function classifyComposerTokens(
   }
 
   return tokens;
+}
+
+/**
+ * The offsets no classified token covers, in ascending order. Callers colour
+ * these separately so that no two decorations claim the same characters, which
+ * would leave the winning colour up to the editor.
+ */
+export function findUnclassifiedSpans(
+  lineLength: number,
+  tokens: readonly ComposerToken[],
+): readonly ComposerTokenSpan[] {
+  const spans: ComposerTokenSpan[] = [];
+  let offset = 0;
+
+  for (const token of tokens) {
+    if (token.start > offset) {
+      spans.push({ start: offset, end: token.start });
+    }
+    offset = Math.max(offset, token.end);
+  }
+  if (offset < lineLength) {
+    spans.push({ start: offset, end: lineLength });
+  }
+
+  return spans;
 }

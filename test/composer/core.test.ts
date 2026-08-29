@@ -10,7 +10,10 @@ import {
   readRegionText,
 } from "../../src/composer/region";
 import { createComposerSession } from "../../src/composer/session";
-import { classifyComposerTokens } from "../../src/composer/tokenClassifier";
+import {
+  classifyComposerTokens,
+  findUnclassifiedSpans,
+} from "../../src/composer/tokenClassifier";
 
 test("creates and reads an indented growing region", () => {
   const wrapper = getCommentWrapper("typescript");
@@ -99,5 +102,29 @@ test("gives reserved words priority over scanned identifiers", () => {
   assert.deepEqual(
     classifyComposerTokens("return", new Set(["return"]), new Set(["return"])),
     [{ start: 0, end: 6, kind: "keyword" }],
+  );
+});
+
+test("leaves the gaps between classified tokens for plain colouring", () => {
+  const tokens = classifyComposerTokens(
+    "  if orderTotal grows",
+    new Set(["orderTotal"]),
+    new Set(["if"]),
+  );
+  assert.deepEqual(findUnclassifiedSpans("  if orderTotal grows".length, tokens), [
+    { start: 0, end: 2 },
+    { start: 4, end: 5 },
+    { start: 15, end: 21 },
+  ]);
+});
+
+test("covers a whole line when no token is classified", () => {
+  assert.deepEqual(findUnclassifiedSpans(12, []), [{ start: 0, end: 12 }]);
+});
+
+test("returns no gap when a classified token fills the line", () => {
+  assert.deepEqual(
+    findUnclassifiedSpans(6, [{ start: 0, end: 6, kind: "keyword" }]),
+    [],
   );
 });
