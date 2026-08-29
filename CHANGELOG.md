@@ -6,6 +6,16 @@ This file records major changes to Pseudini. Usage, settings, and current limits
 
 The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
+## 2026-08-28
+
+### Added
+
+- Inline pseudocode input for TypeScript, JavaScript, JSX, TSX, HTML, and CSS. The input uses
+  decorated plain lines in the active file, grows with typed text, suggests current-file names
+  and language keywords, and replaces itself through the existing generation path.
+- **Pseudini: Write Pseudocode**, with **Cmd+Enter** / **Ctrl+Enter** to confirm and **Escape** to
+  cancel. The open command has no default keybinding.
+
 ## 2026-08-27
 
 ### Fixed

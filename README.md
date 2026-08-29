@@ -5,6 +5,17 @@ developer responsible for the implementation idea while the AI supplies language
 
 ## Use
 
+Run **Pseudini: Write Pseudocode** with the caret on the line before the new code. Pseudini opens
+an indented input region in the active file. Type the implementation idea, then press
+**Cmd+Enter** on macOS or **Ctrl+Enter** elsewhere. Press **Escape** to cancel. Pseudini replaces
+the region with one undoable generated edit.
+
+The inline input supports TypeScript, JavaScript, JSX, TSX, HTML, and CSS. It suggests identifiers
+from the active file and language keywords. Pseudini cancels the input before a save so plain
+pseudocode is not written to disk. The open command has no default keybinding.
+
+The `aime:` comment workflow remains available:
+
 1. Add one or more single-line comments that start with `aime:`.
 2. Run **Pseudini: Flesh Out aime: Comments** from the Command Palette or editor context menu.
 3. Review the generated edit before you keep it.

@@ -1,6 +1,6 @@
 # Inline composer: architecture and implementation plan
 
-Status: review draft. Not implemented. Product limits in [`AGENTS.md`](../AGENTS.md) still apply.
+Status: implemented. Product limits in [`AGENTS.md`](../AGENTS.md) still apply.
 
 Visual source for the locked look: the canvas at
 `~/.cursor/projects/Users-spanyanil-Tools-pseudini/canvases/pseudocode-input-prototype.canvas.tsx`.

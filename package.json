@@ -16,6 +16,9 @@
     "onStartupFinished",
     "onCommand:pseudini.fleshOutAimeComments",
     "onCommand:pseudini.fleshOutWholeFile",
+    "onCommand:pseudini.writePseudocode",
+    "onCommand:pseudini.confirmComposer",
+    "onCommand:pseudini.cancelComposer",
     "onCommand:pseudini.setApiKey",
     "onCommand:pseudini.clearApiKey"
   ],
@@ -33,6 +36,23 @@
         "category": "Pseudini"
       },
       {
+        "command": "pseudini.writePseudocode",
+        "title": "Write Pseudocode",
+        "category": "Pseudini"
+      },
+      {
+        "command": "pseudini.confirmComposer",
+        "title": "Confirm Inline Pseudocode",
+        "category": "Pseudini",
+        "enablement": "pseudini.composerActive"
+      },
+      {
+        "command": "pseudini.cancelComposer",
+        "title": "Cancel Inline Pseudocode",
+        "category": "Pseudini",
+        "enablement": "pseudini.composerActive"
+      },
+      {
         "command": "pseudini.setApiKey",
         "title": "Set API Key",
         "category": "Pseudini"
@@ -41,6 +61,19 @@
         "command": "pseudini.clearApiKey",
         "title": "Clear API Key",
         "category": "Pseudini"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pseudini.confirmComposer",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && pseudini.composerActive"
+      },
+      {
+        "command": "pseudini.cancelComposer",
+        "key": "escape",
+        "when": "editorTextFocus && pseudini.composerActive"
       }
     ],
     "configuration": {
@@ -80,6 +113,11 @@
     "menus": {
       "editor/context": [
         {
+          "command": "pseudini.writePseudocode",
+          "group": "navigation@99",
+          "when": "editorTextFocus"
+        },
+        {
           "command": "pseudini.fleshOutAimeComments",
           "group": "navigation@100",
           "when": "editorTextFocus"
@@ -96,7 +134,7 @@
     "package": "vsce package --no-dependencies --allow-missing-repository",
     "package:local": "vsce package --no-dependencies --allow-missing-repository --out pseudini-local.vsix",
     "install:cursor": "npm run package:local && code --install-extension pseudini-local.vsix --force",
-    "test": "npm run compile && node --test out/test/**/*.test.js",
+    "test": "npm run compile && node --test out/test/*.test.js out/test/composer/*.test.js",
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {

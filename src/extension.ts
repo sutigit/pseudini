@@ -2,6 +2,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { AimeInstruction, findAimeInstructions } from "./commentParser";
 import { ConfigurationService } from "./configurationService";
+import { ComposerHost } from "./composer/host";
 import { ContextIndexer } from "./contextIndexer";
 import { GenerationService } from "./generationService";
 import { applyCommentIndentation, readIndentation } from "./indentation";
@@ -29,10 +30,14 @@ const FLESH_OUT_COMMAND_ID = "pseudini.fleshOutAimeComments";
 const WHOLE_FILE_COMMAND_ID = "pseudini.fleshOutWholeFile";
 const SET_API_KEY_COMMAND_ID = "pseudini.setApiKey";
 const CLEAR_API_KEY_COMMAND_ID = "pseudini.clearApiKey";
+const WRITE_PSEUDOCODE_COMMAND_ID = "pseudini.writePseudocode";
+const CONFIRM_COMPOSER_COMMAND_ID = "pseudini.confirmComposer";
+const CANCEL_COMPOSER_COMMAND_ID = "pseudini.cancelComposer";
 
 let performanceOutput: vscode.OutputChannel | undefined;
 let contextIndexer: ContextIndexer | undefined;
 let generationService: GenerationService | undefined;
+let composerHost: ComposerHost | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   performanceOutput = vscode.window.createOutputChannel("Pseudini: Performance", {
@@ -47,6 +52,8 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   contextIndexer = activeContextIndexer;
   generationService = activeGenerationService;
+  const activeComposerHost = new ComposerHost(generateComposerCode);
+  composerHost = activeComposerHost;
   const fleshOutCommand = vscode.commands.registerTextEditorCommand(
     FLESH_OUT_COMMAND_ID,
     fleshOutAimeComments,
@@ -69,6 +76,18 @@ export function activate(context: vscode.ExtensionContext): void {
         activeGenerationService.clearProviderApiKey(resolveActiveResource()),
       ),
   );
+  const writePseudocodeCommand = vscode.commands.registerTextEditorCommand(
+    WRITE_PSEUDOCODE_COMMAND_ID,
+    (editor) => runComposerCommand(() => activeComposerHost.open(editor)),
+  );
+  const confirmComposerCommand = vscode.commands.registerTextEditorCommand(
+    CONFIRM_COMPOSER_COMMAND_ID,
+    (editor) => runComposerCommand(() => activeComposerHost.confirm(editor)),
+  );
+  const cancelComposerCommand = vscode.commands.registerCommand(
+    CANCEL_COMPOSER_COMMAND_ID,
+    () => runComposerCommand(() => activeComposerHost.cancel()),
+  );
   const openListener = vscode.workspace.onDidOpenTextDocument((document) => {
     void activeContextIndexer.refresh(document);
   });
@@ -84,6 +103,9 @@ export function activate(context: vscode.ExtensionContext): void {
     wholeFileCommand,
     setApiKeyCommand,
     clearApiKeyCommand,
+    writePseudocodeCommand,
+    confirmComposerCommand,
+    cancelComposerCommand,
     openListener,
     saveListener,
     configurationListener,
@@ -91,6 +113,7 @@ export function activate(context: vscode.ExtensionContext): void {
     activeConfigurationService,
     activeContextIndexer,
     activeGenerationService,
+    activeComposerHost,
   );
 
   for (const document of vscode.workspace.textDocuments) {
@@ -103,6 +126,7 @@ export function deactivate(): void {
   performanceOutput = undefined;
   contextIndexer = undefined;
   generationService = undefined;
+  composerHost = undefined;
 }
 
 async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
@@ -144,6 +168,27 @@ async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
   } catch (error) {
     showCommandError(error);
   }
+}
+
+async function generateComposerCode(
+  editor: vscode.TextEditor,
+  instruction: AimeInstruction,
+  token: vscode.CancellationToken,
+): Promise<string> {
+  const document = editor.document;
+  const documentText = document.getText();
+  const replacements = await createReplacements(
+    document,
+    documentText,
+    document.version,
+    [instruction],
+    { report: () => undefined },
+    token,
+  );
+  if (replacements.length !== 1) {
+    throw new Error("Pseudini did not produce one inline replacement.");
+  }
+  return replacements[0].code;
 }
 
 async function createReplacements(
@@ -316,6 +361,14 @@ function resolveActiveResource(): vscode.Uri | undefined {
 }
 
 async function runProviderKeyCommand(operation: () => Promise<void>): Promise<void> {
+  try {
+    await operation();
+  } catch (error) {
+    showCommandError(error);
+  }
+}
+
+async function runComposerCommand(operation: () => Promise<void>): Promise<void> {
   try {
     await operation();
   } catch (error) {
