@@ -6,7 +6,7 @@ Record each weekday how many times you used the Pseudini extension. The target i
 
 | Day        | Uses | Target | Met |
 | ---------- | ---- | ------ | --- |
-| Mon 31 Aug |      | 10     |     |
+| Mon 31 Aug | 0    | 10     | ❌  |
 | Tue 1 Sep  |      | 10     |     |
 | Wed 2 Sep  |      | 10     |     |
 | Thu 3 Sep  |      | 10     |     |
