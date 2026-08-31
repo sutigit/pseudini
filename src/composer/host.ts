@@ -63,10 +63,20 @@ export class ComposerHost implements vscode.Disposable {
           this.close();
         }
       }),
-      vscode.window.onDidChangeActiveTextEditor(() => this.refreshView()),
-      vscode.window.onDidChangeTextEditorSelection((event) =>
-        this.keepCaretInContent(event.textEditor),
+      vscode.window.onDidChangeActiveTextEditor((editor) =>
+        this.handleActiveEditorChange(editor),
       ),
+      // No event reports a loss of text focus, so a blurred window is the only
+      // signal the chip gets besides its own idle timer.
+      vscode.window.onDidChangeWindowState((state) => {
+        if (!state.focused) {
+          this.view.hideHint(this.findSessionEditor());
+        }
+      }),
+      vscode.window.onDidChangeTextEditorSelection((event) => {
+        this.keepCaretInContent(event.textEditor);
+        this.noteActivity(event.textEditor);
+      }),
       vscode.languages.registerCompletionItemProvider(
         SUPPORTED_LANGUAGE_IDS.map((language) => ({ language })),
         completionProvider,
@@ -361,6 +371,7 @@ export class ComposerHost implements vscode.Disposable {
     }
     this.session = nextSession;
     this.refreshView();
+    this.noteActivity(this.findSessionEditor());
     if (event.contentChanges.some((change) => shouldTriggerComposerSuggestions(change.text))) {
       void vscode.commands.executeCommand("editor.action.triggerSuggest");
     }
@@ -460,6 +471,25 @@ export class ComposerHost implements vscode.Disposable {
         ? new vscode.Position(target.line, line.firstNonWhitespaceCharacterIndex)
         : line.range.end;
     editor.selection = new vscode.Selection(position, position);
+  }
+
+  private handleActiveEditorChange(
+    editor: vscode.TextEditor | undefined,
+  ): void {
+    if (!editor || !this.getSession(editor.document)) {
+      this.view.hideHint(this.findSessionEditor());
+    }
+    this.refreshView();
+  }
+
+  /**
+   * Kept apart from refreshView, because the identifier index also repaints and
+   * that is not the developer touching the file.
+   */
+  private noteActivity(editor: vscode.TextEditor | undefined): void {
+    if (editor && this.session && this.getSession(editor.document)) {
+      this.view.noteActivity(editor, this.session);
+    }
   }
 
   private refreshView(): void {

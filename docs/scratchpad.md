@@ -8,8 +8,9 @@
 #### Iteration 0.2
 
 - [x] Make sure the color highlighting works only on identifier names
-- [ ] Create the end of the typed line anchored "esc cancels | pseudini ⌘⏎" chip to remind how the heck did we convert it again
-- [ ] Loading indication that pseudini conversion started (something cool but feasable)
+- [x] Create the end of the typed line anchored "esc cancels | pseudini ⌘⏎" chip to remind how the heck did we convert it again
+- [x] Loading indication that pseudini conversion started (something cool but feasable)
+- [ ] Stop showing "no suggestions" suggestion box if there are no suggestions
 
 #### Iteration 0.1
 

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ComposerHintView } from "./hintView";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
 import {
@@ -60,6 +61,7 @@ export class ComposerView implements vscode.Disposable {
     vscode.StatusBarAlignment.Right,
     100,
   );
+  private readonly hint = new ComposerHintView();
 
   public constructor() {
     this.status.name = "Pseudini inline composer";
@@ -72,6 +74,7 @@ export class ComposerView implements vscode.Disposable {
   ): void {
     const region = toEditorRange(editor.document, session);
     const draftRanges = createDraftRanges(editor.document, session, identifiers);
+    const regionEmpty = isRegionEmpty(editor.document, session);
     editor.setDecorations(this.regionDecoration, [region]);
     editor.setDecorations(
       this.dimDecoration,
@@ -86,10 +89,11 @@ export class ComposerView implements vscode.Disposable {
     );
     editor.setDecorations(
       this.placeholderDecoration,
-      isRegionEmpty(editor.document, session)
+      regionEmpty
         ? [editor.document.lineAt(session.contentRange.startLine).range]
         : [],
     );
+    this.hint.sync(editor, session, regionEmpty);
     this.status.text =
       session.phase === "pending"
         ? "$(loading~spin) Pseudini: generating syntax"
@@ -102,7 +106,24 @@ export class ComposerView implements vscode.Disposable {
     );
   }
 
+  /** Typing or a caret move keeps the chip alive for another idle window. */
+  public noteActivity(
+    editor: vscode.TextEditor,
+    session: ComposerSession,
+  ): void {
+    this.hint.noteActivity(
+      editor,
+      session,
+      isRegionEmpty(editor.document, session),
+    );
+  }
+
+  public hideHint(editor?: vscode.TextEditor): void {
+    this.hint.clear(editor);
+  }
+
   public clear(editor?: vscode.TextEditor): void {
+    this.hint.clear(editor);
     if (editor) {
       editor.setDecorations(this.regionDecoration, []);
       editor.setDecorations(this.dimDecoration, []);
@@ -122,6 +143,7 @@ export class ComposerView implements vscode.Disposable {
 
   public dispose(): void {
     this.clear();
+    this.hint.dispose();
     this.regionDecoration.dispose();
     this.dimDecoration.dispose();
     this.plainDecoration.dispose();

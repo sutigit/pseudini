@@ -102,6 +102,8 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `instructionAdapter.ts` | Map session draft + range to one `PseudocodeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
+| `hint.ts` | Pure chip text, spinner frames, timing constants, and the hidden/composing/pending rule | Decorations, timers |
+| `hintView.ts` | The chip decoration, the idle timeout, and the spinner interval | What the chip says, session state |
 | `completions.ts` | `CompletionItemProvider` that no-ops unless the caret is inside the active region | Session phase transitions |
 | `undoHistory.ts` | Pure rule for when an undo replay has restored the origin or run out of stack | VS Code, editors |
 | `undoRewind.ts` | Replays the editor `undo` command, and `redo` when the rewind fails | Session state, generation |
@@ -233,6 +235,23 @@ because hiding is decoration only.
 
 If overlay decorations collide with typed text (as the first canvas pass did), keep the label on
 the right of the line or in the status bar. Do not cover the caret.
+
+#### Cursor hint chip
+
+[`hintView.ts`](../src/composer/hintView.ts) anchors an `after` attachment at the end of the caret's
+line, so the chip never splits or shifts the draft. While generating it anchors to the last draft
+line instead, because the caret can be anywhere by then.
+
+- Composing reads `Esc cancels · Pseudini ⌘↵`, or `Ctrl+↵` off macOS.
+- Pending reads a Braille spinner frame plus `Generating syntax`. Decoration render options accept
+ no keyframes or transitions, so the animation is text that a 200 ms interval swaps. The
+ `$(loading~spin)` icon works in the status bar, not in `contentText`.
+- The chip appears on typing or a caret move and disappears after 2 s of quiet. Pending ignores the
+ idle timer.
+- The chip stays hidden while the region is empty, so it never doubles up with the placeholder.
+- No API reports that the editor text lost focus. Hiding therefore relies on the idle timer plus
+ `onDidChangeWindowState` and `onDidChangeActiveTextEditor`. A click into the Explorer is covered
+ only by the timer.
 
 ### Document version
 

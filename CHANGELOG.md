@@ -8,6 +8,14 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ## 2026-08-31
 
+### Added
+
+- A hint chip beside the caret in the inline input. It reads `Esc cancels · Pseudini ⌘↵` while you
+  type, and a spinner plus `Generating syntax` while a run is in flight. It appears on typing or a
+  caret move, and it goes away after about two seconds of quiet, when the caret leaves the draft, or
+  when the window loses focus. The spinner is frame-based text, because decorations accept no CSS
+  animation.
+
 ### Fixed
 
 - Escape ends the whole inline input again. An edit that crossed a wrapper mark, such as a
