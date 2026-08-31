@@ -29,13 +29,13 @@ const replacementSchema = {
   required: ["replacements"],
   additionalProperties: false,
 };
-const runs = readPositiveInteger("AIME_BENCH_RUNS", 50);
-const warmups = readNonNegativeInteger("AIME_BENCH_WARMUPS", 2);
-const models = readList("AIME_BENCH_MODELS", DEFAULT_MODELS);
+const runs = readPositiveInteger("PSEUDINI_BENCH_RUNS", 50);
+const warmups = readNonNegativeInteger("PSEUDINI_BENCH_WARMUPS", 2);
+const models = readList("PSEUDINI_BENCH_MODELS", DEFAULT_MODELS);
 const outputName = readOutputName();
 const selectedCases = new Set(
   readList(
-    "AIME_BENCH_CASES",
+    "PSEUDINI_BENCH_CASES",
     benchmarkFixtures.filter(({ id }) => id !== "whole-file").map(({ id }) => id),
   ),
 );
@@ -43,7 +43,7 @@ const fixtures = benchmarkFixtures.filter(({ id }) => selectedCases.has(id));
 const results = [];
 
 if (fixtures.length === 0) {
-  throw new Error("AIME_BENCH_CASES did not select a known benchmark fixture.");
+  throw new Error("PSEUDINI_BENCH_CASES did not select a known benchmark fixture.");
 }
 
 for (const model of models) {
@@ -162,7 +162,7 @@ async function performRequest(model, fixture, startedAt) {
   simulateEdit(fixture, validation.code);
   const editMs = performance.now() - editStartedAt;
   const wallMs = performance.now() - startedAt;
-  if (!validation.valid && process.env.AIME_BENCH_DEBUG === "1") {
+  if (!validation.valid && process.env.PSEUDINI_BENCH_DEBUG === "1") {
     console.error(`\n${model}/${fixture.id}: ${payload.message?.content ?? "<no content>"}`);
   }
 
@@ -397,9 +397,9 @@ function readList(name, fallback) {
 }
 
 function readOutputName() {
-  const value = process.env.AIME_BENCH_OUTPUT ?? "latest.json";
+  const value = process.env.PSEUDINI_BENCH_OUTPUT ?? "latest.json";
   if (!/^[A-Za-z0-9._-]+\.json$/.test(value)) {
-    throw new Error("AIME_BENCH_OUTPUT must be a JSON file name without a path.");
+    throw new Error("PSEUDINI_BENCH_OUTPUT must be a JSON file name without a path.");
   }
   return value;
 }

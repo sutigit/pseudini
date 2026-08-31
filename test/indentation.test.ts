@@ -3,9 +3,9 @@ import test from "node:test";
 import { applyCommentIndentation, readIndentation } from "../src/indentation";
 
 test("reads the leading whitespace of a comment line", () => {
-  assert.equal(readIndentation("    // aime: return the total"), "    ");
-  assert.equal(readIndentation("\t\t// aime: return the total"), "\t\t");
-  assert.equal(readIndentation("// aime: return the total"), "");
+  assert.equal(readIndentation("    // pseudini: return the total"), "    ");
+  assert.equal(readIndentation("\t\t// pseudini: return the total"), "\t\t");
+  assert.equal(readIndentation("// pseudini: return the total"), "");
 });
 
 test("indents unindented generated code to the comment indentation", () => {

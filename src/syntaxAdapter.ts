@@ -1,10 +1,10 @@
-import { AimeInstruction } from "./commentParser";
+import { PseudocodeInstruction } from "./commentParser";
 import { CodeReplacement } from "./prompt";
 
 const LOG_INSTRUCTION = /^log\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)$/i;
 
 export function createDeterministicReplacement(
-  instruction: AimeInstruction,
+  instruction: PseudocodeInstruction,
   languageId: string,
   sourceLine: string,
 ): CodeReplacement | undefined {

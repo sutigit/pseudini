@@ -1,14 +1,14 @@
-import { AimeInstruction } from "./commentParser";
+import { PseudocodeInstruction } from "./commentParser";
 
 const MAX_BATCH_WORDS = 600;
 const LARGE_INSTRUCTION_PART_WORDS = 550;
 
 export function chunkInstructions(
-  instructions: readonly AimeInstruction[],
-): readonly (readonly AimeInstruction[])[] {
+  instructions: readonly PseudocodeInstruction[],
+): readonly (readonly PseudocodeInstruction[])[] {
   const expandedInstructions = instructions.flatMap(splitLargeInstruction);
-  const chunks: AimeInstruction[][] = [];
-  let current: AimeInstruction[] = [];
+  const chunks: PseudocodeInstruction[][] = [];
+  let current: PseudocodeInstruction[] = [];
   let currentWords = 0;
 
   for (const instruction of expandedInstructions) {
@@ -29,8 +29,8 @@ export function chunkInstructions(
 }
 
 function splitLargeInstruction(
-  instruction: AimeInstruction,
-): readonly AimeInstruction[] {
+  instruction: PseudocodeInstruction,
+): readonly PseudocodeInstruction[] {
   const words = instruction.pseudocode.trim().split(/\s+/).filter(Boolean);
   if (words.length <= MAX_BATCH_WORDS) {
     return [instruction];
@@ -51,7 +51,7 @@ function splitLargeInstruction(
 }
 
 export function estimateMaxOutputTokens(
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
 ): number {
   const words = instructions.reduce(
     (total, instruction) => total + countWords(instruction.pseudocode),

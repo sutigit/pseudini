@@ -1,4 +1,4 @@
-import { AimeInstruction } from "./commentParser";
+import { PseudocodeInstruction } from "./commentParser";
 import { FileContext } from "./fileContext";
 import { extractJsonObject } from "./jsonObject";
 
@@ -16,7 +16,7 @@ interface ModelResponse {
 
 export function createImplementationPrompt(
   context: FileContext,
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
 ): string {
   const requestedReplacements = JSON.stringify(instructions, null, 2);
 
@@ -48,7 +48,7 @@ export function createImplementationPrompt(
 
 export function parseModelResponse(
   responseText: string,
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
 ): readonly CodeReplacement[] {
   const parsed = parseJson(responseText);
 

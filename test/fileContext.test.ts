@@ -7,7 +7,7 @@ test("builds deterministic imports, declarations, indentation, and hash", () => 
     'import { User } from "./types";',
     "",
     "export function activeNames(users: User[]): string[] {",
-    "  // aime: return active names",
+    "  // pseudini: return active names",
     "}",
   ].join("\n");
   const facts = buildFileFacts(source, "typescript", "users.ts");
@@ -21,7 +21,7 @@ test("builds deterministic imports, declarations, indentation, and hash", () => 
 });
 
 test("keeps the complete live source for small files", () => {
-  const source = "function total() {\n  // aime: return zero\n}";
+  const source = "function total() {\n  // pseudini: return zero\n}";
   const context = buildFileContext(
     source,
     "typescript",
@@ -36,7 +36,7 @@ test("keeps the complete live source for small files", () => {
 test("uses live windows and excludes unrelated code in large files", () => {
   const lines = Array.from({ length: 200 }, (_, line) => `const value${line} = ${line};`);
   lines[99] = "function selected() {";
-  lines[100] = "  // aime: return value100";
+  lines[100] = "  // pseudini: return value100";
   const source = lines.join("\n");
   const context = buildFileContext(
     source,
@@ -47,14 +47,14 @@ test("uses live windows and excludes unrelated code in large files", () => {
 
   assert.equal(context.usedFullFile, false);
   assert.match(context.liveSource, /function selected/);
-  assert.match(context.liveSource, /aime: return value100/);
+  assert.match(context.liveSource, /pseudini: return value100/);
   assert.doesNotMatch(context.liveSource, /value199/);
 });
 
 test("includes the complete enclosing scope beyond the default source window", () => {
   const lines = Array.from({ length: 200 }, (_, line) => `const outside${line} = ${line};`);
   lines[50] = "function selected() {";
-  lines[51] = "  // aime: finish this function";
+  lines[51] = "  // pseudini: finish this function";
   for (let line = 52; line < 120; line += 1) {
     lines[line] = `  const inside${line} = ${line};`;
   }
@@ -76,7 +76,7 @@ test("includes Allman-style scopes and ignores braces inside strings", () => {
   lines[40] = "function selected()";
   lines[41] = "{";
   lines[42] = '  const brace = "}";';
-  lines[43] = "  // aime: return the brace";
+  lines[43] = "  // pseudini: return the brace";
   lines[44] = "  return brace;";
   lines[45] = "}";
   const context = buildFileContext(
@@ -92,7 +92,7 @@ test("includes Allman-style scopes and ignores braces inside strings", () => {
 });
 
 test("ignores cached facts when their content hash is stale", () => {
-  const source = "function fresh() {\n  // aime: return zero\n}";
+  const source = "function fresh() {\n  // pseudini: return zero\n}";
   const stale = {
     ...buildFileFacts("function stale() {}", "typescript", "stale.ts"),
     declarations: ["function stale() {}"],

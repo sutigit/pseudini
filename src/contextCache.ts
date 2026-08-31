@@ -31,7 +31,12 @@ export class ContextCache {
   private writeQueue: Promise<void> = Promise.resolve();
 
   public constructor(workspaceRoot: string) {
-    this.cacheDirectory = path.join(workspaceRoot, ".aime", "cache-v1");
+    this.cacheDirectory = path.join(
+      workspaceRoot,
+      ".cursor",
+      "pseudini",
+      "cache-v1",
+    );
     this.filesDirectory = path.join(this.cacheDirectory, "files");
     this.manifestPath = path.join(this.cacheDirectory, "manifest.json");
   }

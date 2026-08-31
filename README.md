@@ -18,15 +18,15 @@ wrapper marks are hidden from view, and the caret stays inside the writable line
 edit them. Pseudini removes the wrappers on confirm or
 cancel, and cancels the input before a save. The open command has no default keybinding.
 
-The `aime:` comment workflow remains available:
+The `pseudini:` comment workflow remains available:
 
-1. Add one or more single-line comments that start with `aime:`.
-2. Run **Pseudini: Flesh Out aime: Comments** from the Command Palette or editor context menu.
+1. Add one or more single-line comments that start with `pseudini:`.
+2. Run **Pseudini: Flesh Out pseudini: Comments** from the Command Palette or editor context menu.
 3. Review the generated edit before you keep it.
 
 ```typescript
 function activeUserNames(users: User[]): string[] {
-  // aime: keep active users and return their names
+  // pseudini: keep active users and return their names
 }
 ```
 
@@ -127,15 +127,16 @@ npm run benchmark:whole
 The benchmark defaults to 50 warm requests for each passing model and fixture. It stops a failing
 case after three samples when every sample misses the quality or latency gate. The whole-file
 suite reports separately. Use
-`AIME_BENCH_RUNS`, `AIME_BENCH_MODELS`, and `AIME_BENCH_CASES` for focused development runs.
+`PSEUDINI_BENCH_RUNS`, `PSEUDINI_BENCH_MODELS`, and `PSEUDINI_BENCH_CASES` for focused
+development runs.
 See `benchmarks/RESULTS.md` for the measured model decision and limits.
 
 ## Context cache
 
 Pseudini extracts imports, declarations, indentation, and live source windows. It writes
-deterministic facts to `.aime/cache-v1/` when a document opens or saves. Each entry includes the
-source hash and extractor version. Pseudini ignores stale entries and uses the current buffer.
-The `.aime/` directory is disposable and excluded from Git and Cursor indexing.
+deterministic facts to `.cursor/pseudini/cache-v1/` when a document opens or saves. Each entry
+includes the source hash and extractor version. Pseudini ignores stale entries and uses the current
+buffer. The `.cursor/pseudini/` directory is disposable and excluded from Git and Cursor indexing.
 
 ## Observability operations
 
@@ -154,7 +155,7 @@ npm test
 ```
 
 Open this folder in Cursor and run the `Run Extension` launch configuration. In the Extension
-Development Host, open a source file with an `aime:` comment and run the Pseudini command. This
+Development Host, open a source file with a `pseudini:` comment and run the Pseudini command. This
 F5 workflow compiles first and uses the development copy, so it remains the fastest way to test
 code changes.
 
@@ -162,7 +163,7 @@ Use `npm run install:cursor` only when testing the packaged extension in a norma
 
 ## MVP boundaries
 
-- Pseudini changes only `aime:` comment ranges or the active whole-file command target.
+- Pseudini changes only `pseudini:` comment ranges or the active whole-file command target.
 - It reads authoritative source context only from the active file.
 - It does not make multi-file edits.
 - One command execution creates one undoable editor edit.

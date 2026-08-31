@@ -9,7 +9,7 @@ import {
   findUnclassifiedSpans,
 } from "./tokenClassifier";
 
-const PLACEHOLDER = "describe the change | esc cancels | pseudini ⌘⏎";
+const PLACEHOLDER = "describe the change | esc cancels | translate ⌘⏎";
 
 export class ComposerView implements vscode.Disposable {
   private readonly regionDecoration =

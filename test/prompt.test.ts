@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AimeInstruction } from "../src/commentParser";
+import { PseudocodeInstruction } from "../src/commentParser";
 import { createImplementationPrompt, parseModelResponse } from "../src/prompt";
 
-const instructions: readonly AimeInstruction[] = [
+const instructions: readonly PseudocodeInstruction[] = [
   { line: 2, pseudocode: "return the sum" },
 ];
 const context = {
@@ -13,7 +13,7 @@ const context = {
   imports: [],
   declarations: ["function total() {"],
   indentation: "2 spaces",
-  liveSource: "function total() {\n  // aime: return the sum\n}",
+  liveSource: "function total() {\n  // pseudini: return the sum\n}",
   usedFullFile: true,
 };
 

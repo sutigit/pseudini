@@ -6,6 +6,15 @@ This file records major changes to Pseudini. Usage, settings, and current limits
 
 The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
+## 2026-08-31
+
+### Changed
+
+- Replaced the comment marker with `pseudini:` across parsing, commands, tests, benchmarks, and
+  documentation.
+- Moved the disposable context cache into `.cursor/pseudini/cache-v1/`.
+- Standardized benchmark environment variables on the `PSEUDINI_BENCH_` prefix.
+
 ## 2026-08-29
 
 ### Changed
@@ -45,9 +54,9 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ### Fixed
 
-- The comment parser now finds `aime:` instructions in JSX and TSX expression comments, for example
-  `{/* aime: render each active user */}`. It previously required the comment marker to start the
-  line, so the brace container hid the instruction.
+- The comment parser now finds `pseudini:` instructions in JSX and TSX expression comments, for
+  example `{/* pseudini: render each active user */}`. It previously required the comment marker
+  to start the line, so the brace container hid the instruction.
 
 ## 2026-08-26
 
@@ -66,7 +75,7 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ### Fixed
 
-- Generated replacements now use the `aime:` comment indentation. Nested lines keep relative
+- Generated replacements now use the `pseudini:` comment indentation. Nested lines keep relative
   depth. Column-zero model output no longer starts at the left margin.
 
 ## 2026-08-23
@@ -85,9 +94,9 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ### Added
 
-- MVP Cursor extension: replace `aime:` comments with generated code from a command.
+- MVP Cursor extension: replace `pseudini:` comments with generated code from a command.
 - Comment parser for `//`, `#`, `--`, `;`, `/* ... */`, and `<!-- ... -->`.
-- Multiline `aime:` comments that use the same line-comment marker.
+- Multiline `pseudini:` comments that use the same line-comment marker.
 - Whole-file command that converts a pseudocode file in sequential 50-line chunks.
 - Local Ollama transport with loopback URL checks, JSON Schema output, health checks, preload, and
   `keep_alive` while the extension is active.
@@ -95,7 +104,7 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
   Keys bind to the normalized HTTPS endpoint in SecretStorage.
 - Deterministic adapter for exact `log identifier` instructions (no model call).
 - Live file context: imports, declarations, indentation, and scoped source windows.
-- Hash-invalidated `.aime/cache-v1/` fact cache.
+- Hash-invalidated `.cursor/pseudini/cache-v1/` fact cache.
 - Request chunking for comments over 600 words, replacement fragment merge, and a single undoable
   edit per command.
 - Performance output channel with load, prompt, generation, wall time, and token counts.

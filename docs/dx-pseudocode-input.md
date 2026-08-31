@@ -10,7 +10,7 @@ writes syntax for the active file. This sketch is about making that idea easier 
 ## Vision
 
 1. A key command opens an input.
-2. The developer types pseudocode. No `aime:` comment is required in the source file.
+2. The developer types pseudocode. No `pseudini:` comment is required in the source file.
 3. The input highlights reserved words for the language under work.
 4. The input suggests names from the current file (variables, functions, objects, and similar).
 5. Closing the input sends the text to the existing local LLM path and inserts one undoable edit
@@ -20,13 +20,13 @@ First languages: TypeScript, JavaScript, JSX, TSX, HTML, CSS.
 
 Later: keyword packs as plugins so other languages can be added without rewriting the input.
 
-Keep the current `aime:` comment command. Treat it as the fallback and as a way to store the idea
+Keep the current `pseudini:` comment command. Treat it as the fallback and as a way to store the idea
 in the file.
 
 ## Current DX (do not throw away)
 
-- Command: **Pseudini: Flesh Out aime: Comments**
-- Trigger: comments that start with `aime:`
+- Command: **Pseudini: Flesh Out pseudini: Comments**
+- Trigger: comments that start with `pseudini:`
 - Generation: local Ollama, optional provider for large requests
 - Edit: one undoable replacement, comment indentation preserved
 
@@ -73,13 +73,13 @@ A peek-style widget over the current line.
 - Cons: one line, no highlight, no real completion
 - Verdict: **[ ] reject for this vision**
 
-### Option E — Keep writing in the file, hide `aime:`
+### Option E — Keep writing in the file, hide `pseudini:`
 
 Snippet or command inserts a region; a CodeLens / decoration says “Pseudini”. Still a comment
 under the hood.
 
 - Pros: almost no new UI; idea stays in git
-- Cons: still a comment; weak match to “do not write aime:”
+- Cons: still a comment; weak match to “do not write pseudini:”
 - Verdict: **[ ] optional parallel, not the main path**
 
 ### Suggested close / cancel rules (edit these)
@@ -95,7 +95,7 @@ under the hood.
 
 - Title: **Pseudini: Write pseudocode** (change this)
 - Keybinding: unset in the extension; user sets it (change this)
-- Does not remove the old `aime:` command
+- Does not remove the comment command
 
 ---
 
@@ -178,7 +178,7 @@ Do not build a plugin loader until the input exists and the first six language i
 4. Tune highlight (native vs keyword overlay) after using it in TS/JS/JSX/TSX/HTML/CSS.
 5. Contribution point for extra language packs.
 
-`aime:` comments stay until this path is the one people actually use.
+`pseudini:` comments stay until this path is the one people actually use.
 
 ---
 

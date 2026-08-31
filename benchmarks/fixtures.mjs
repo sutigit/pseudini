@@ -33,7 +33,7 @@ export const benchmarkFixtures = [
     pseudocode: "log thisIsSomeVariableName",
     source: [
       "export function reportValue(thisIsSomeVariableName: string): void {",
-      "  // aime: log thisIsSomeVariableName",
+      "  // pseudini: log thisIsSomeVariableName",
       "}",
     ].join("\n"),
     line: 1,
@@ -56,7 +56,7 @@ export const benchmarkFixtures = [
       "}",
       "",
       "export function activeUserNames(users: User[]): string[] {",
-      "  // aime: keep active users and return their names",
+      "  // pseudini: keep active users and return their names",
       "}",
     ].join("\n"),
     line: 6,
@@ -74,7 +74,7 @@ export const benchmarkFixtures = [
     pseudocode: buildWorkflowPseudocode(14),
     source: [
       "export function processRecords(records: RecordInput[]): ProcessedRecord[] {",
-      "  // aime: implement the detailed workflow",
+      "  // pseudini: implement the detailed workflow",
       "}",
     ].join("\n"),
     line: 1,
@@ -92,7 +92,7 @@ export const benchmarkFixtures = [
     pseudocode: buildWorkflowPseudocode(56),
     source: [
       "export function processRecords(records: RecordInput[]): ProcessedRecord[] {",
-      "  // aime: implement the detailed workflow",
+      "  // pseudini: implement the detailed workflow",
       "}",
     ].join("\n"),
     line: 1,

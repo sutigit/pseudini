@@ -1,20 +1,23 @@
-export interface AimeInstruction {
+export interface PseudocodeInstruction {
   readonly line: number;
   readonly endLine?: number;
   readonly pseudocode: string;
 }
 
-// JSX wraps a block comment in an expression container: `{/* aime: ... */}`.
-const SINGLE_LINE_AIME_PATTERN =
-  /^\s*(?:\/\/|#|--|;|\{\s*\/\*+|\/\*+|\*|<!--)\s*aime:\s*(.*?)(?:\s*(?:\*\/\s*\}?|-->))?\s*$/i;
-const LINE_COMMENT_AIME_PATTERN = /^\s*(\/\/|#|--|;)\s*aime:\s*(.*?)\s*$/i;
+// JSX wraps a block comment in an expression container: `{/* pseudini: ... */}`.
+const SINGLE_LINE_PSEUDINI_PATTERN =
+  /^\s*(?:\/\/|#|--|;|\{\s*\/\*+|\/\*+|\*|<!--)\s*pseudini:\s*(.*?)(?:\s*(?:\*\/\s*\}?|-->))?\s*$/i;
+const LINE_COMMENT_PSEUDINI_PATTERN =
+  /^\s*(\/\/|#|--|;)\s*pseudini:\s*(.*?)\s*$/i;
 
-export function findAimeInstructions(documentText: string): AimeInstruction[] {
+export function findPseudiniInstructions(
+  documentText: string,
+): PseudocodeInstruction[] {
   const lines = documentText.split(/\r?\n/);
-  const instructions: AimeInstruction[] = [];
+  const instructions: PseudocodeInstruction[] = [];
 
   for (let line = 0; line < lines.length; line += 1) {
-    const lineComment = LINE_COMMENT_AIME_PATTERN.exec(lines[line]);
+    const lineComment = LINE_COMMENT_PSEUDINI_PATTERN.exec(lines[line]);
     if (lineComment) {
       const marker = lineComment[1];
       const parts = [lineComment[2].trim()].filter(Boolean);
@@ -22,7 +25,7 @@ export function findAimeInstructions(documentText: string): AimeInstruction[] {
 
       while (endLine + 1 < lines.length) {
         const continuation = readContinuation(lines[endLine + 1], marker);
-        if (continuation === undefined || /^aime:/i.test(continuation)) {
+        if (continuation === undefined || /^pseudini:/i.test(continuation)) {
           break;
         }
         parts.push(continuation);
@@ -40,7 +43,7 @@ export function findAimeInstructions(documentText: string): AimeInstruction[] {
       continue;
     }
 
-    const singleLine = SINGLE_LINE_AIME_PATTERN.exec(lines[line]);
+    const singleLine = SINGLE_LINE_PSEUDINI_PATTERN.exec(lines[line]);
     const pseudocode = singleLine?.[1]?.trim();
     if (pseudocode) {
       instructions.push({ line, pseudocode });

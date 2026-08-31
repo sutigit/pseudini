@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { AimeInstruction } from "./commentParser";
+import { PseudocodeInstruction } from "./commentParser";
 import { ContextCache } from "./contextCache";
 import {
   buildFileContext,
@@ -16,7 +16,7 @@ export class ContextIndexer implements vscode.Disposable {
   public async resolve(
     document: vscode.TextDocument,
     documentText: string,
-    instructions: readonly AimeInstruction[],
+    instructions: readonly PseudocodeInstruction[],
   ): Promise<FileContext> {
     const workspace = vscode.workspace.getWorkspaceFolder(document.uri);
     const fileName = path.basename(document.fileName);
@@ -50,7 +50,9 @@ export class ContextIndexer implements vscode.Disposable {
   public async refresh(document: vscode.TextDocument): Promise<void> {
     if (
       document.uri.scheme !== "file" ||
-      document.fileName.includes(`${path.sep}.aime${path.sep}`)
+      document.fileName.includes(
+        `${path.sep}.cursor${path.sep}pseudini${path.sep}`,
+      )
     ) {
       return;
     }

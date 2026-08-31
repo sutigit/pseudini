@@ -1,7 +1,7 @@
 {
   "name": "pseudini",
   "displayName": "Pseudini",
-  "description": "Turn aime: pseudocode comments into code.",
+  "description": "Turn pseudini: pseudocode comments into code.",
   "version": "0.1.0",
   "publisher": "pseudini",
   "license": "MIT",
@@ -14,7 +14,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:pseudini.fleshOutAimeComments",
+    "onCommand:pseudini.fleshOutPseudiniComments",
     "onCommand:pseudini.fleshOutWholeFile",
     "onCommand:pseudini.writePseudocode",
     "onCommand:pseudini.confirmComposer",
@@ -26,8 +26,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "pseudini.fleshOutAimeComments",
-        "title": "Flesh Out aime: Comments",
+        "command": "pseudini.fleshOutPseudiniComments",
+        "title": "Flesh Out pseudini: Comments",
         "category": "Pseudini"
       },
       {
@@ -118,7 +118,7 @@
           "when": "editorTextFocus"
         },
         {
-          "command": "pseudini.fleshOutAimeComments",
+          "command": "pseudini.fleshOutPseudiniComments",
           "group": "navigation@100",
           "when": "editorTextFocus"
         }

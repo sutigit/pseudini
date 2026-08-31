@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AimeInstruction } from "../commentParser";
+import { PseudocodeInstruction } from "../commentParser";
 import { readIndentation } from "../indentation";
 import { getCommentWrapper } from "./commentSyntax";
 import { ComposerCompletionProvider } from "./completions";
@@ -32,7 +32,7 @@ const SUPPORTED_LANGUAGE_IDS = [
 
 export type GenerateComposerCode = (
   editor: vscode.TextEditor,
-  instruction: AimeInstruction,
+  instruction: PseudocodeInstruction,
   token: vscode.CancellationToken,
 ) => Promise<string>;
 

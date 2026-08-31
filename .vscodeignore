@@ -3,7 +3,7 @@
 .vscode/
 .cursorignore
 .gitignore
-.aime/
+.cursor/pseudini/
 AGENTS.md
 benchmarks/*.mjs
 benchmarks/results/

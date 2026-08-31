@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { AimeInstruction } from "./commentParser";
+import { PseudocodeInstruction } from "./commentParser";
 
 export interface FileFacts {
   readonly contentHash: string;
@@ -49,7 +49,7 @@ export function buildFileContext(
   documentText: string,
   languageId: string,
   fileName: string,
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
   suppliedFacts?: FileFacts,
 ): FileContext {
   const contentHash = hashContent(documentText);
@@ -75,7 +75,7 @@ export function hashContent(content: string): string {
 
 function extractLiveSections(
   lines: readonly string[],
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
 ): string {
   const ranges = instructions
     .map(({ line, endLine }) => {

@@ -1,6 +1,9 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { AimeInstruction, findAimeInstructions } from "./commentParser";
+import {
+  findPseudiniInstructions,
+  PseudocodeInstruction,
+} from "./commentParser";
 import { ConfigurationService } from "./configurationService";
 import { ComposerHost } from "./composer/host";
 import { ContextIndexer } from "./contextIndexer";
@@ -26,7 +29,7 @@ import {
   WHOLE_FILE_SCHEMA,
 } from "./wholeFile";
 
-const FLESH_OUT_COMMAND_ID = "pseudini.fleshOutAimeComments";
+const FLESH_OUT_COMMAND_ID = "pseudini.fleshOutPseudiniComments";
 const WHOLE_FILE_COMMAND_ID = "pseudini.fleshOutWholeFile";
 const SET_API_KEY_COMMAND_ID = "pseudini.setApiKey";
 const CLEAR_API_KEY_COMMAND_ID = "pseudini.clearApiKey";
@@ -56,7 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
   composerHost = activeComposerHost;
   const fleshOutCommand = vscode.commands.registerTextEditorCommand(
     FLESH_OUT_COMMAND_ID,
-    fleshOutAimeComments,
+    fleshOutPseudiniComments,
   );
   const wholeFileCommand = vscode.commands.registerTextEditorCommand(
     WHOLE_FILE_COMMAND_ID,
@@ -129,15 +132,15 @@ export function deactivate(): void {
   composerHost = undefined;
 }
 
-async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
+async function fleshOutPseudiniComments(editor: vscode.TextEditor): Promise<void> {
   const document = editor.document;
   const documentText = document.getText();
   const documentVersion = document.version;
-  const instructions = findAimeInstructions(documentText);
+  const instructions = findPseudiniInstructions(documentText);
 
   if (instructions.length === 0) {
     void vscode.window.showInformationMessage(
-      'Pseudini did not find comments that start with "aime:".',
+      'Pseudini did not find comments that start with "pseudini:".',
     );
     return;
   }
@@ -172,7 +175,7 @@ async function fleshOutAimeComments(editor: vscode.TextEditor): Promise<void> {
 
 async function generateComposerCode(
   editor: vscode.TextEditor,
-  instruction: AimeInstruction,
+  instruction: PseudocodeInstruction,
   token: vscode.CancellationToken,
 ): Promise<string> {
   const document = editor.document;
@@ -195,7 +198,7 @@ async function createReplacements(
   document: vscode.TextDocument,
   documentText: string,
   documentVersion: number,
-  instructions: readonly AimeInstruction[],
+  instructions: readonly PseudocodeInstruction[],
   progress: vscode.Progress<{ message?: string; increment?: number }>,
   token: vscode.CancellationToken,
 ): Promise<readonly CodeReplacement[]> {

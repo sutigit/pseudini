@@ -7,7 +7,7 @@ test("implements an exact TypeScript log instruction without a model", () => {
     createDeterministicReplacement(
       { line: 3, pseudocode: "log thisIsSomeVariableName" },
       "typescript",
-      "  // aime: log thisIsSomeVariableName",
+      "  // pseudini: log thisIsSomeVariableName",
     ),
     {
       line: 3,
@@ -21,7 +21,7 @@ test("implements an exact Python log instruction", () => {
     createDeterministicReplacement(
       { line: 1, pseudocode: "log account.name" },
       "python",
-      "    # aime: log account.name",
+      "    # pseudini: log account.name",
     ),
     {
       line: 1,
@@ -35,7 +35,7 @@ test("does not guess for unsupported wording or languages", () => {
     createDeterministicReplacement(
       { line: 1, pseudocode: "log the user when active" },
       "typescript",
-      "  // aime: log the user when active",
+      "  // pseudini: log the user when active",
     ),
     undefined,
   );

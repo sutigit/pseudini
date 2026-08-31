@@ -19,7 +19,10 @@ test("stores and reads facts only for the expected content hash", async () => {
     assert.equal(await cache.read("src/total.ts", "stale-hash"), undefined);
 
     const manifest = JSON.parse(
-      await readFile(path.join(workspace, ".aime", "cache-v1", "manifest.json"), "utf8"),
+      await readFile(
+        path.join(workspace, ".cursor", "pseudini", "cache-v1", "manifest.json"),
+        "utf8",
+      ),
     );
     assert.equal(manifest.entries["src/total.ts"].contentHash, facts.contentHash);
   } finally {

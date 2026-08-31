@@ -9,13 +9,13 @@ runtime or hardware.
 A developer writes the implementation idea as pseudocode. The AI supplies language syntax that
 fits the current file. The developer stays responsible for architecture, naming, and correctness.
 
-The comment marker is `aime:`. The product is a Cursor extension (VS Code API). Do not turn
+The comment marker is `pseudini:`. The product is a Cursor extension (VS Code API). Do not turn
 Pseudini into a multi-file agent, a chat copilot, or a full-file rewriter except the dedicated
 whole-file command.
 
 ## Non-goals and hard limits
 
-- Change only `aime:` comment ranges, or the whole-file command target.
+- Change only `pseudini:` comment ranges, or the whole-file command target.
 - Read authoritative source context only from the active file.
 - One command run produces one undoable editor edit.
 - Do not log source, prompts, generated code, or API keys.
@@ -27,7 +27,7 @@ whole-file command.
 
 ```mermaid
 flowchart TD
-  cmd[Flesh Out aime Comments]
+  cmd[Flesh Out pseudini Comments]
   parse[commentParser]
   adapter[syntaxAdapter]
   plan[requestPlanner]
@@ -50,11 +50,11 @@ comment parser.
 | File | Role |
 | ---- | ---- |
 | `src/extension.ts` | Activation, commands, progress, document-version guard, apply edits, indent model output |
-| `src/commentParser.ts` | Find `aime:` instructions, including multiline line-comments |
+| `src/commentParser.ts` | Find `pseudini:` instructions, including multiline line-comments |
 | `src/syntaxAdapter.ts` | Deterministic `log identifier` path; skip the model |
 | `src/requestPlanner.ts` | Split comments over 600 words; token budgets |
 | `src/fileContext.ts` | Live facts and scoped source windows |
-| `src/contextIndexer.ts` / `src/contextCache.ts` | `.aime/cache-v1/` hash-invalidated facts |
+| `src/contextIndexer.ts` / `src/contextCache.ts` | `.cursor/pseudini/cache-v1/` hash-invalidated facts |
 | `src/prompt.ts` | Implementation prompt and ordered JSON replacements (no `line` from the model) |
 | `src/generationService.ts` | Queue, route local vs provider, warm/unload model |
 | `src/ollamaClient.ts` | Loopback Ollama chat, schema, timings, `keep_alive: -1` |

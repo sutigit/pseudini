@@ -22,7 +22,7 @@ These match the prototype knobs that passed review. Do not reopen them without a
 | Confirm | `Cmd+Enter` / `Ctrl+Enter` |
 | Cancel | `Escape`. Empty input is cancel |
 | Open keybinding | Not shipped. User binds **Pseudini: Write pseudocode** |
-| Existing command | **Flesh Out aime: Comments** stays |
+| Existing command | **Flesh Out pseudini: Comments** stays |
 
 The public VS Code API has no editor zone widget, inline webview, or way to suppress another
 provider's diagnostics for one range. The composer inserts real lines at the caret and wraps them
@@ -40,7 +40,7 @@ Non-goals:
 - A second model stack, prompt, or JSON schema
 - Multi-file edits
 - Chat
-- Replacing the `aime:` command
+- Replacing the `pseudini:` command
 - A contribution point for third-party language packs in the first slices
 - Monaco, webviews, or peek widgets
 
@@ -58,7 +58,7 @@ Rules:
 3. **Host is a thin adapter.** `vscode.TextEditor`, decorations, and keybindings live in two files
    at most. If the decoration API fights us, only those files change.
 4. **Reuse generation as a function call.** The composer builds one synthetic instruction and
-   hands it to the same planner, context, prompt, generation, indent, and apply path as `aime:`.
+   hands it to the same planner, context, prompt, generation, indent, and apply path as `pseudini:`.
 5. **Language knowledge is data.** Keyword lists are JSON. Adding HTML or CSS is a file, not a
    branch in the session.
 
@@ -81,7 +81,7 @@ flowchart TD
   complete --> packs
   complete --> suggest
   view --> session
-  host -->|"synthetic AimeInstruction"| gen
+  host -->|"synthetic PseudocodeInstruction"| gen
 ```
 
 ## Modules
@@ -98,7 +98,7 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
 | `identifierScan.ts` | Cheap identifier list from document text, excluding the region | Language-server results, network |
 | `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words, and the unclassified gaps between them | Grammar parsing, theme colors |
-| `instructionAdapter.ts` | Map session draft + range to one `AimeInstruction` | Prompt text, Ollama |
+| `instructionAdapter.ts` | Map session draft + range to one `PseudocodeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
 | `completions.ts` | `CompletionItemProvider` that no-ops unless the caret is inside the active region | Session phase transitions |
@@ -160,7 +160,7 @@ Cancel by forward edit removes the complete temporary wrapper range in one edit.
 ### Synthetic instruction
 
 [`createImplementationPrompt`](../src/prompt.ts) and [`parseModelResponse`](../src/prompt.ts)
-already take `AimeInstruction[]`. The adapter builds one instruction:
+already take `PseudocodeInstruction[]`. The adapter builds one instruction:
 
 - `line` / `endLine`: the composer range
 - `pseudocode`: the draft text with leading indent stripped
@@ -208,7 +208,7 @@ the right of the line or in the status bar. Do not cover the caret.
 
 ### Document version
 
-[`ensureDocumentUnchanged`](../src/extension.ts) aborts `aime:` if any edit happens during
+[`ensureDocumentUnchanged`](../src/extension.ts) aborts `pseudini:` if any edit happens during
 generation. The composer must treat in-region typing as owned edits.
 
 - **Composing:** apply `workspace.onDidChangeTextDocument`. If every change is inside
@@ -244,7 +244,7 @@ Safe to change without touching the composer:
 
 Must stay stable, because both paths use them:
 
-- `AimeInstruction`
+- `PseudocodeInstruction`
 - `CodeReplacement` order mapping (model does not pick line numbers)
 - `applyCommentIndentation`
 

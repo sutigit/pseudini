@@ -1,10 +1,10 @@
-import { AimeInstruction } from "../commentParser";
+import { PseudocodeInstruction } from "../commentParser";
 import { ComposerSession } from "./session";
 
 export function createComposerInstruction(
   session: ComposerSession,
   pseudocode: string,
-): AimeInstruction {
+): PseudocodeInstruction {
   const endLine = session.range.endLineExclusive - 1;
   return {
     line: session.range.startLine,
