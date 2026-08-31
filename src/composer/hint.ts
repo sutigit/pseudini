@@ -62,7 +62,7 @@ export function isMacPlatform(): boolean {
 }
 
 function composingHintText(isMac: boolean): string {
-  return `esc cancels | pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`;
+  return `✨ esc cancels | pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`;
 }
 
 /** Attachments have no reliable padding property, so pad with spaces. */
