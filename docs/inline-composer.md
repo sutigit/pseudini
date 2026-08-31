@@ -1,33 +1,31 @@
-# Inline composer: architecture and implementation plan
+# Inline composer
 
-Status: implemented. Product limits in [`AGENTS.md`](../AGENTS.md) still apply.
+Architecture for **Pseudini: Write Pseudocode**. Product limits in [`AGENTS.md`](../AGENTS.md)
+still apply. Usage and chords are in [`README.md`](../README.md). History is in
+[`CHANGELOG.md`](../CHANGELOG.md). Rejected hosts are in
+[`dx-pseudocode-input.md`](./dx-pseudocode-input.md).
 
-Visual source for the locked look: the canvas at
-`~/.cursor/projects/Users-spanyanil-Tools-pseudini/canvases/pseudocode-input-prototype.canvas.tsx`.
-Earlier UI options and rejected hosts live in [`dx-pseudocode-input.md`](./dx-pseudocode-input.md).
-This file is the implementation source of truth when the two disagree.
+The public VS Code API has no editor zone widget, inline webview, or way to suppress another
+provider's diagnostics for one range. The composer inserts real lines at the caret and wraps them
+in temporary language-specific comments. Free prose stays out of static parsing. Diagnostics
+outside the region stay active.
 
 ## Locked product choices
 
-These match the prototype knobs that passed review. Do not reopen them without a new review.
+Do not reopen these without a new review.
 
 | Knob | Choice |
 | ---- | ------ |
 | Host | Real lines in the active editor, under the caret |
-| Region kind | Comment-backed lines (not a scratch buffer or webview) |
+| Region kind | Comment-backed lines |
 | Size | Region grows as the developer types new lines |
 | Result | Replace the region with generated code |
-| Suggestions | On: prefix match from the active file plus a language keyword pack |
+| Suggestions | Prefix match from the active file, then a language keyword pack |
+| Colour | File names the language service reports. Not language keywords |
 | Dim rest of file | On while composing or generating |
 | Confirm | `Cmd+Enter` / `Ctrl+Enter` |
 | Cancel | `Escape`. Empty input is cancel |
-| Open keybinding | Not shipped. User binds **Pseudini: Write pseudocode** |
-| Existing command | **Flesh Out pseudini: Comments** stays |
-
-The public VS Code API has no editor zone widget, inline webview, or way to suppress another
-provider's diagnostics for one range. The composer inserts real lines at the caret and wraps them
-in temporary language-specific comments. This keeps free prose out of static parsing while normal
-diagnostics remain active outside the region.
+| Open keybinding | Not shipped |
 
 ## Goal
 
@@ -35,32 +33,22 @@ The developer types the idea in the file. The existing local generation path wri
 that file. One confirm produces one undoable step: `Undo` returns the file to the state it had
 before the input opened.
 
-Non-goals:
-
-- A second model stack, prompt, or JSON schema
-- Multi-file edits
-- Chat
-- Replacing the `pseudini:` command
-- A contribution point for third-party language packs in the first slices
-- Monaco, webviews, or peek widgets
+Non-goals: a second model stack, multi-file edits, chat, replacing the `pseudini:` command,
+Monaco, webviews, peek widgets, a contribution point for third-party language packs.
 
 ## Why the module cut
 
 The extension and the generation path change often. The composer must be easy to throw away or
 reshape without touching Ollama, prompts, or comment parsing.
 
-Rules:
-
 1. **One reason to change per module.** Session logic, buffer math, decorations, completions, and
    language data do not share files.
 2. **No `vscode` in the core.** Core modules take strings, line ranges, and language ids. Tests run
-   with `node --test` like the rest of the repo.
-3. **Host is a thin adapter.** `vscode.TextEditor`, decorations, and keybindings live in two files
-   at most. If the decoration API fights us, only those files change.
+   with `node --test`.
+3. **Host is a thin adapter.** Editor types, decorations, and keybindings stay out of the core.
 4. **Reuse generation as a function call.** The composer builds one synthetic instruction and
-   hands it to the same planner, context, prompt, generation, indent, and apply path as `pseudini:`.
-5. **Language knowledge is data.** Keyword lists are JSON. Adding HTML or CSS is a file, not a
-   branch in the session.
+   hands it to the same path as `pseudini:`.
+5. **Language knowledge is data.** Keyword lists for suggestions are JSON.
 
 ```mermaid
 flowchart TD
@@ -86,46 +74,42 @@ flowchart TD
 
 ## Modules
 
-Place new files under `src/composer/` with tests under `test/composer/`. Do not grow
-[`src/extension.ts`](../src/extension.ts) beyond command registration and dependency wiring.
+Files live under `src/composer/` with tests under `test/composer/`.
+[`src/extension.ts`](../src/extension.ts) only registers commands and wires dependencies.
 
 | Module | Owns | Must not own |
 | ------ | ---- | ------------ |
-| `session.ts` | Phase (`idle` / `composing` / `pending`), region start, line count, indent string, snapshot of the pre-open buffer | VS Code, decorations, HTTP |
-| `region.ts` | Pure edits: insert opening line, grow/shrink line count, restore snapshot, replace range with code | When to confirm, how code is generated |
+| `session.ts` | Phase (`composing` / `pending`), `range`, `contentRange`, indent, `origin` | VS Code, decorations, HTTP |
+| `region.ts` | Insert wrappers, read draft, replace or remove the range | When to confirm, how code is generated |
 | `commentSyntax.ts` | Comment wrapper delimiters for each supported language id | Editor edits, decorations |
-| `languagePack.ts` | Map `languageId` to a keyword list | Completions UI, session |
-| `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
+| `languagePack.ts` | Map `languageId` to a keyword list for suggestions | Completions UI, colour, session |
+| `packs/*.json` | Keyword arrays for `typescript`, `javascript`, JSX/TSX, `html`, `css` | Logic |
 | `identifierNames.ts` | Turn semantic tokens and document symbols into a name list, excluding the region | Editor commands, decorations |
 | `identifierIndex.ts` | Ask the language providers once per session and cache the names | Which names count, decorations |
-| `tokenClassifier.ts` | Pure offset classification for known identifiers, and the unclassified gaps between them | Grammar parsing, theme colors |
+| `tokenClassifier.ts` | Offsets of known identifiers, and the unclassified gaps | Grammar parsing, theme colors |
 | `instructionAdapter.ts` | Map session draft + range to one `PseudocodeInstruction` | Prompt text, Ollama |
-| `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
-| `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
-| `hint.ts` | Pure chip text, spinner frames, timing constants, and the hidden/composing/pending rule | Decorations, timers |
-| `hintView.ts` | The chip decoration, the idle timeout, and the spinner interval | What the chip says, session state |
-| `completions.ts` | `CompletionItemProvider` that no-ops unless the caret is inside the active region | Session phase transitions |
-| `undoHistory.ts` | Pure rule for when an undo replay has restored the origin or run out of stack | VS Code, editors |
-| `undoRewind.ts` | Replays the editor `undo` command, and `redo` when the rewind fails | Session state, generation |
+| `host.ts` | One session per editor, document change filter, confirm/cancel | Prompt construction |
+| `view.ts` | Stripe, fill, dimming, identifier colour, placeholder, context key | Buffer edits |
+| `hint.ts` | Chip and placeholder wording, spinner frames, visibility rule | Decorations, timers |
+| `hintView.ts` | Chip decoration, idle timeout, spinner interval | What the chip says, session state |
+| `completions.ts` | `CompletionItemProvider` only while the caret is in the region | Session phase transitions |
+| `undoHistory.ts` | When an undo replay has restored the origin or run out of stack | VS Code, editors |
+| `undoRewind.ts` | Replay `undo`, and `redo` when the rewind fails | Session state, generation |
 
-`generationService`, `fileContext`, `prompt`, `requestPlanner`, `indentation`,
-`replacementMerger`, and the document-version abort stay where they are. The composer calls them.
-
-### Session shape
+### Session
 
 ```text
 ComposerSession
-  editorId
-  uri
-  phase
-  indent              -- taken from the caret line when the region opens
+  documentUri
+  phase               -- composing | pending
+  indentation         -- taken from the caret line when the region opens
   range               -- wrapper start through wrapper end, exclusive
   contentRange        -- editable pseudocode lines only, exclusive
   origin              -- document text and anchor line from before the region existed
 ```
 
-Allowed transitions: `idle -> composing -> pending -> idle`, and `composing -> idle` on cancel.
-`pending -> idle` on success, failure, cancel, or abort.
+There is no idle session object. Opening creates `composing`. Confirm moves to `pending`. Success,
+failure, cancel, and abort all close the session.
 
 ### Region math
 
@@ -134,220 +118,110 @@ caret. TypeScript, JavaScript, and CSS use `/* ... */`; JSX and TSX use `{/* ...
 `<!-- ... -->`. Typing extra newlines grows `contentRange` and `range`. Edits to a delimiter
 cancel the session.
 
-The delimiters are painted transparent with collapsed letter spacing, so the region reads as an
-input box instead of a comment. Because the marks are invisible, the host moves a caret that lands
-on a delimiter line back into `contentRange`. That selection guard is what keeps the hidden marks
-unmodifiable; the delimiter lines therefore render as blank rows above and below the draft.
+The delimiters are painted transparent with collapsed letter spacing. The host moves a caret that
+lands on a delimiter line back into `contentRange`. Copying a region line still copies the real
+delimiter text, because hiding is decoration only.
 
 ### Undo
 
 One `Undo` must return the file to the state it had before the region opened. The editor API cannot
-prune or merge undo stops, so the composer replays the editor's own `undo` command until the buffer
-matches `origin.text`, then inserts the generated code after `origin.anchorLine` with
-`undoStopBefore`. The result is a single undo step for the whole interaction. Cancel uses the same
-rewind, so a cancelled draft leaves no history at all.
+prune undo stops, so the composer replays `undo` until the buffer matches `origin.text`, then
+inserts the generated code after `origin.anchorLine`. Cancel uses the same rewind, so a cancelled
+draft leaves no history.
 
-The rewind is only safe for edits the composer made itself:
+The rewind is only safe for edits the composer made itself. Explicit cancel while `composing`, and
+confirm success, rewind. Everything else removes the region with a forward delete (`removeRegion`):
+an edit outside the region, a change during `pending`, and a failed generation.
 
-- Explicit cancel while `composing`, and confirm success, rewind.
-- Everything else removes the region with a forward delete edit (`removeRegion`). That covers an
-  edit outside the region, a change during `pending`, and a failed generation, where an undo replay
-  would discard the developer's own edit.
-
-`rewindDocumentText` replays `redo` for every `undo` it made when it cannot reach `origin.text`, so
-a failed rewind never leaves a half-restored file. The caller then falls back to replacing the
-visible region.
-
-Cancel by forward edit removes the complete temporary wrapper range in one edit. It deletes only
-text the composer still recognizes as its own: `isRegionIntact` requires the recorded range to sit
-inside the file and to open and close with the wrapper marks. A range that no longer matches is
-never deleted, because the lines could be source code by then.
-
-Escape must end the whole interaction, with no wrapper, no draft, and no suggestion widget left
-behind. Two rules keep that true:
-
-- An edit that crosses a delimiter ends the session, such as a Backspace that joins the draft with
-  the opening mark. The session removes the region when the marks survived, and replays undo to
-  `origin.text` when they did not. Ending the session without cleaning the buffer would leave a
-  stray comment that Escape can no longer reach.
-- Cancel closes the suggestion widget, which the composer opened itself.
+`rewindDocumentText` replays `redo` for every `undo` it made when it cannot reach `origin.text`.
+Cancel by forward edit deletes only a range `isRegionIntact` still recognizes as the composer's
+wrapper. An edit that crosses a delimiter ends the session. Cancel also closes the suggestion
+widget.
 
 ### Synthetic instruction
 
-[`createImplementationPrompt`](../src/prompt.ts) and [`parseModelResponse`](../src/prompt.ts)
-already take `PseudocodeInstruction[]`. The adapter builds one instruction:
+The adapter builds one `PseudocodeInstruction`: `line` / `endLine` from the composer range, and
+`pseudocode` with leading indent stripped. [`buildFileContext`](../src/fileContext.ts) sees the
+live buffer, including the draft. [`applyCommentIndentation`](../src/indentation.ts) uses
+`session.indentation`. Word count for `largeRequestRoute` uses the draft.
 
-- `line` / `endLine`: the composer range
-- `pseudocode`: the draft text with leading indent stripped
-
-[`buildFileContext`](../src/fileContext.ts) then sees the live buffer, including the draft. That
-is acceptable: the draft is the requested replacement. If the model copies the draft back, the
-indent step still applies. Do not strip the region from `liveSource` in v1; measure first.
-
-[`applyCommentIndentation`](../src/indentation.ts) already re-bases column-zero model output onto
-a captured indent. Pass `session.indent`.
-
-Word count for `largeRequestRoute` uses the draft, same 50-word rule as comments.
-
-### Completions and highlight
+### Completions and colour
 
 Suggestions are prefix-based and case-insensitive. Sources, in order: names from the active file
-outside the wrapper, then keywords from the pack. No extra network calls. Comment wrappers
-disable the editor's automatic suggestion trigger, so the host opens the widget after a typed
-word character.
+outside the wrapper, then keywords from the pack. Comment wrappers disable the editor's automatic
+suggestion trigger, so the host opens the widget after a typed word character.
 
-The names come from the language providers, never from a text scan. `identifierIndex.ts` runs
-`vscode.provideDocumentSemanticTokens` with its legend, and falls back to
-`vscode.executeDocumentSymbolProvider` when a language has no semantic token provider, such as CSS
-and HTML. When neither answers, no name is coloured. A text scan
-would turn every word of an English comment into a "known name" and colour ordinary prose.
+Names come from the language providers, never from a text scan.
+`identifierIndex.ts` runs `vscode.provideDocumentSemanticTokens` and falls back to
+`vscode.executeDocumentSymbolProvider`. When neither answers, no name is coloured.
 
-`identifierNames.ts` decodes that output: it keeps tokens whose legend type names something, skips
-the composer region, and drops anything that is not identifier-shaped. Document symbol names are
-split into their identifier words, so a CSS selector `.card .title` contributes `card` and `title`.
+The index loads once after the region opens. An edit outside the region ends the session. The load
+does not block opening; the view paints again when the providers answer.
 
-The index loads once, right after the region opens, against a text snapshot taken at request time.
-An edit outside the region ends the session, so the names cannot go stale while the developer
-types. The load does not block opening: the draft is empty until the first keystroke, and the view
-paints again when the providers answer.
+Each content line splits into two disjoint decoration ranges: provider names use
+`symbolIcon.variableForeground`; the rest use `editor.foreground`. Both set `fontStyle: "normal"`
+so the comment style does not italicize the draft. Language keywords are not coloured.
 
-Coloring is deterministic token decoration, not grammar parsing. Each content line is split into
-two groups of ranges that never overlap, because two colour decorations over the same characters
-leave the winner to the editor:
+### Chrome
 
-1. `symbolIcon.variableForeground` for exact, case-sensitive matches of the provider names.
-2. `editor.foreground` for the remaining offsets, from `findUnclassifiedSpans`.
+`view.ts` dims lines outside the region, paints a left stripe and a tinted fill on the region, and
+shows ghost placeholder text on an empty draft:
+`describe your code | esc cancels | pseudini ⌘↵` (`Ctrl+↵` off macOS).
 
-Both also set `fontStyle: "normal"`, since every group would otherwise inherit the italic
-comment style.
+[`hintView.ts`](../src/composer/hintView.ts) anchors an `after` chip at the end of the caret's
+line. While generating it anchors to the last draft line.
 
-The active document language does not change. Copying a region line copies the real delimiter text,
-because hiding is decoration only.
-
-### Dimming and chrome
-
-`view.ts` sets:
-
-- A whole-document dim decoration minus the region
-- A left-edge stripe and a tinted background on the region
-- A after-content or overlay label `Pseudini` plus confirm hint on the first region line
-
-If overlay decorations collide with typed text (as the first canvas pass did), keep the label on
-the right of the line or in the status bar. Do not cover the caret.
-
-#### Cursor hint chip
-
-[`hintView.ts`](../src/composer/hintView.ts) anchors an `after` attachment at the end of the caret's
-line, so the chip never splits or shifts the draft. While generating it anchors to the last draft
-line instead, because the caret can be anywhere by then.
-
-- Composing reads `Esc cancels · Pseudini ⌘↵`, or `Ctrl+↵` off macOS.
-- Pending reads a Braille spinner frame plus `Generating syntax`. Decoration render options accept
- no keyframes or transitions, so the animation is text that a 200 ms interval swaps. The
- `$(loading~spin)` icon works in the status bar, not in `contentText`.
-- The chip appears on typing or a caret move and disappears after 2 s of quiet. Pending ignores the
- idle timer.
-- The chip stays hidden while the region is empty, so it never doubles up with the placeholder.
-- No API reports that the editor text lost focus. Hiding therefore relies on the idle timer plus
- `onDidChangeWindowState` and `onDidChangeActiveTextEditor`. A click into the Explorer is covered
- only by the timer.
+- Composing: `✨ esc cancels | pseudini ⌘↵`
+- Pending: a Braille spinner frame plus `Generating syntax`, swapped every 200 ms. Decoration
+  render options accept no keyframes.
+- The chip appears on typing or a caret move and hides after 2 s of quiet. Pending ignores the
+  idle timer. An empty region keeps the chip hidden so it does not stack on the placeholder.
+- No API reports that editor text lost focus. Hiding uses the idle timer plus
+  `onDidChangeWindowState` and `onDidChangeActiveTextEditor`.
 
 ### Document version
 
-[`ensureDocumentUnchanged`](../src/extension.ts) aborts `pseudini:` if any edit happens during
-generation. The composer must treat in-region typing as owned edits.
+In-region typing is an owned edit.
 
-- **Composing:** apply `workspace.onDidChangeTextDocument`. If every change is inside
-  `contentRange` (including newline growth at its end), update both ranges and keep going. If any
-  change touches wrapper delimiters or lines outside the region, cancel and remove the wrapper.
-- **Pending:** ignore further typed input (read-only on the region via `Type` override, or cancel
-  on any change). If `document.version` moves without a session-owned edit, abort and restore.
-- **Save while composing:** cancel and remove the wrapper before the save completes.
+- **Composing:** if every change is inside `contentRange`, update both ranges. If any change
+  touches wrapper delimiters or lines outside the region, cancel.
+- **Pending:** any document change cancels the run.
+- **Save:** cancel and remove the wrapper before the save completes.
 
-### Keybindings and context
+### Commands
 
-Contribute commands:
+- `pseudini.writePseudocode` — open at the primary caret
+- `pseudini.confirmComposer` / `pseudini.cancelComposer` — when `pseudini.composerActive`
 
-- `pseudini.writePseudocode` — open composer at caret (no selection wrap in v1; first cursor only)
-- `pseudini.confirmComposer` — when `pseudini.composerActive`
-- `pseudini.cancelComposer` — when `pseudini.composerActive`
-
-Ship confirm and cancel chords (`editorTextFocus && pseudini.composerActive`). Do not ship an
-open chord. Multi-cursor: ignore extra cursors; use the primary one.
+Confirm and cancel chords ship. An open chord does not. Extra cursors are ignored.
 
 ## Coupling map
 
-Safe to change without touching generation:
+Safe to change without touching generation: decoration look (`view.ts`, `hintView.ts`), keyword
+lists (`packs/`), completion ranking (`suggestions.ts`).
 
-- Decoration look (`view.ts`)
-- Keyword lists (`packs/`)
-- Completion ranking (`completions.ts` + `suggestions.ts`)
+Safe to change without touching the composer: Ollama client, provider, schema, queue, comment
+parser, whole-file command.
 
-Safe to change without touching the composer:
-
-- Ollama client, provider, schema, queue
-- Comment parser and whole-file command
-
-Must stay stable, because both paths use them:
-
-- `PseudocodeInstruction`
-- `CodeReplacement` order mapping (model does not pick line numbers)
-- `applyCommentIndentation`
+Must stay stable: `PseudocodeInstruction`, `CodeReplacement` order mapping,
+`applyCommentIndentation`.
 
 Do not import `composer/*` from `commentParser`, `ollamaClient`, or `prompt`.
 
-## Implementation slices
-
-Ship in this order. Each slice is mergeable and testable. Do not start the next slice until the
-previous one is usable in the F5 host.
-
-1. **Command + region, no model.** Open inserts a line. Type. Confirm inserts the raw draft at
-   the same indent and closes. Escape restores. Proves the loop and undo.
-2. **Decorations.** Stripe, fill, dim, pending text. Tune so the caret and placeholder stay
-   readable.
-3. **Generation.** Adapter → existing `createReplacements` path for one instruction → replace
-   region. Progress UI may be a region label instead of a window notification. Abort rules as
-   above.
-4. **Completions.** File identifiers and keyword packs. Tests for match and for
-   "provider silent outside region".
-5. **Language packs for HTML and CSS.** Data only. Confirm indent still looks right in CSS.
-6. **Stop.** No contribution point, no comment-region fork, no keep-and-insert-below, until a
-   later review.
-
 ## Tests
 
-Next to the modules, same style as [`test/commentParser.test.ts`](../test/commentParser.test.ts).
-
-| Slice | Assert |
-| ----- | ------ |
-| Region | Open, grow, cancel restore byte-for-byte, replace |
-| Session | Illegal transitions throw; outside-range change requests cancel |
-| Adapter | Draft and range become one instruction; indent stripped from pseudocode |
-| Identifier names | Semantic tokens become names; comment tokens and region lines omitted; symbol names split into words |
-| Pack lookup | `typescriptreact` gets TS + JSX tag names; unknown id returns empty |
-| Completions | Empty list when position is outside a stub session range |
-
-Do not add a full benchmark run for this work. [`AGENTS.md`](../AGENTS.md) reserves that for
-latency, models, or fixtures.
+Live next to the modules under `test/composer/`. Cover region math, session range updates,
+the instruction adapter, identifier extraction, pack lookup, suggestion ranking, undo replay,
+and hint visibility. Do not add a full benchmark run for composer work.
 
 ## Risks
 
 | Risk | Handling |
 | ---- | -------- |
-| Free prose produces static syntax diagnostics | Keep it inside temporary comment wrappers |
-| A typed closing delimiter ends a block comment | Treat delimiter edits as session cancellation |
-| Typing history leaves many undo stops | Replay `undo` to `origin.text` before the generated insert; `redo` back and fall back when that fails |
-| Native comment color hides useful names | Overlay only provider names |
+| Free prose produces static syntax diagnostics | Temporary comment wrappers |
+| A typed closing delimiter ends a block comment | Delimiter edits cancel the session |
+| Typing history leaves many undo stops | Replay `undo` to `origin.text`; `redo` back on failure |
+| Native comment color hides useful names | Overlay provider names only |
 | A language reports no names | Fall back to document symbols |
-| `buildFileContext` includes the draft | Measure; strip later in `fileContext` only if it causes copy-back |
-| Decoration APIs differ from the canvas | Slice 2 is a live F5 check, not a canvas check |
-| `document.version` during pending | Session-owned vs foreign edits; abort foreign |
-
-## After implementation
-
-When this ships:
-
-- Update [`README.md`](../README.md) with the new command and the confirm/cancel chords
-- Record the change in [`CHANGELOG.md`](../CHANGELOG.md)
-- Leave observation steps in [`OBSOPS.md`](../OBSOPS.md) if the host needs a runtime check
-- Keep this file as architecture; put history in the changelog, not here
+| `buildFileContext` includes the draft | Measure; strip later only if it causes copy-back |
+| `document.version` during pending | Cancel on any change |
