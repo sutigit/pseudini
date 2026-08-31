@@ -3,13 +3,13 @@
 #### Iteration 1.1
 
 - [ ] Python language support
+- [ ] After conversion, show passed conversion time in light text style and in decimal seconds. The time should be position in the end of the line of the last row of generated code. The time should disappear after the cursor has moved to any other position or state
 
 #### Iteration 0.2
 
-- [ ] Loading indication that pseudini conversion started (something cool but feasable)
 - [x] Make sure the color highlighting works only on identifier names
 - [ ] Create the end of the typed line anchored "esc cancels | pseudini ⌘⏎" chip to remind how the heck did we convert it again
-- [ ] (extra) After conversion, show passed conversion time in light text style and in decimal seconds. The time should be position in the end of the line of the last row of generated code. The time should disappear after the cursor has moved to any other position or state
+- [ ] Loading indication that pseudini conversion started (something cool but feasable)
 
 #### Iteration 0.1
 
