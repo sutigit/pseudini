@@ -46,7 +46,7 @@ export function createComposingHint(isMac: boolean): string {
 
 export function createPendingHint(frame: number): string {
   const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
-  return padHint(`${spinner} Generating syntax`);
+  return padHint(`✨ Generating syntax ${spinner}`);
 }
 
 /**

@@ -148,8 +148,21 @@ live buffer, including the draft. [`applyCommentIndentation`](../src/indentation
 ### Completions and colour
 
 Suggestions are prefix-based and case-insensitive. Sources, in order: names from the active file
-outside the wrapper, then keywords from the pack. Comment wrappers disable the editor's automatic
-suggestion trigger, so the host opens the widget after a typed word character.
+outside the wrapper, then keywords from the pack.
+
+Comment wrappers disable the editor's automatic suggestion trigger, so the host drives the widget
+itself. After each edit it reads the word before the caret and checks it against the same candidate
+rule the provider uses:
+
+- Candidates exist: open the widget. One letter is enough.
+- No candidates, or the caret is not at the end of a word: close it. Free prose therefore never
+  shows an empty "No suggestions" box.
+- Already open for a word the current one extends: leave it alone, because the editor filters an
+  open widget by itself. Re-opening only happens at the start of a word, which keeps a deviating
+  word such as `ordx` closed until it matches again.
+
+The check awaits the identifier index, then re-reads the caret. A prefix that changed while it
+waited belongs to a later call.
 
 Names come from the language providers, never from a text scan.
 `identifierIndex.ts` runs `vscode.provideDocumentSemanticTokens` and falls back to
@@ -172,8 +185,8 @@ shows ghost placeholder text on an empty draft:
 line. While generating it anchors to the last draft line.
 
 - Composing: `✨ esc cancels | pseudini ⌘↵`
-- Pending: a Braille spinner frame plus `Generating syntax`, swapped every 200 ms. Decoration
-  render options accept no keyframes.
+- Pending: `✨ Generating syntax` plus a Braille spinner frame at the end, swapped every 200 ms.
+  Decoration render options accept no keyframes.
 - The chip appears on typing or a caret move and hides after 2 s of quiet. Pending ignores the
   idle timer. An empty region keeps the chip hidden so it does not stack on the placeholder.
 - No API reports that editor text lost focus. Hiding uses the idle timer plus

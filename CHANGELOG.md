@@ -18,6 +18,10 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ### Fixed
 
+- The inline input no longer opens an empty "No suggestions" box over free prose. The suggestion
+  widget opens only while the word at the caret still matches a file name or a language keyword,
+  from the first letter on, and closes as soon as the word deviates. It stays open without
+  re-triggering while you type further into a matching word.
 - Escape ends the whole inline input again. An edit that crossed a wrapper mark, such as a
   Backspace at the start of the draft, used to end the session and leave the comment and the typed
   text in the file, where Escape could no longer reach them. Such an edit now removes the region, or

@@ -40,12 +40,12 @@ test("prompts in the placeholder with the chip wording", () => {
 });
 
 test("cycles the spinner frames", () => {
-  assert.equal(createPendingHint(0), ` ${SPINNER_FRAMES[0]} Generating syntax `);
+  assert.equal(createPendingHint(0), ` ✨ Generating syntax ${SPINNER_FRAMES[0]} `);
   assert.equal(
     createPendingHint(SPINNER_FRAMES.length),
-    ` ${SPINNER_FRAMES[0]} Generating syntax `,
+    ` ✨ Generating syntax ${SPINNER_FRAMES[0]} `,
   );
-  assert.equal(createPendingHint(3), ` ${SPINNER_FRAMES[3]} Generating syntax `);
+  assert.equal(createPendingHint(3), ` ✨ Generating syntax ${SPINNER_FRAMES[3]} `);
 });
 
 test("shows the pending chip wherever the caret sits", () => {

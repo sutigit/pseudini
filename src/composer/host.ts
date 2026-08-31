@@ -5,6 +5,7 @@ import { getCommentWrapper } from "./commentSyntax";
 import { ComposerCompletionProvider } from "./completions";
 import { ComposerIdentifierIndex } from "./identifierIndex";
 import { createComposerInstruction } from "./instructionAdapter";
+import { getLanguageKeywords } from "./languagePack";
 import {
   createCodeInsertion,
   createRegionInsertion,
@@ -17,9 +18,10 @@ import {
   clampToComposerContent,
   ComposerSession,
   createComposerSession,
+  isComposerContentLine,
   updateComposerRange,
 } from "./session";
-import { shouldTriggerComposerSuggestions } from "./suggestions";
+import { hasSuggestionCandidates, readSuggestionPrefix } from "./suggestions";
 import { rewindDocumentText } from "./undoRewind";
 import { ComposerView } from "./view";
 
@@ -45,6 +47,8 @@ export class ComposerHost implements vscode.Disposable {
   private session: ComposerSession | undefined;
   private applyingEdit = false;
   private generationCancellation: vscode.CancellationTokenSource | undefined;
+  // The word the widget was last opened for, so typing on does not re-open it.
+  private suggestedPrefix = "";
 
   public constructor(private readonly generateCode: GenerateComposerCode) {
     const completionProvider = new ComposerCompletionProvider(
@@ -204,7 +208,7 @@ export class ComposerHost implements vscode.Disposable {
   public async cancel(editor?: vscode.TextEditor): Promise<void> {
     const activeEditor = editor ?? this.findSessionEditor();
     const session = this.session;
-    hideSuggestWidget();
+    this.closeSuggestionWidget();
     if (!session || !activeEditor) {
       this.close(activeEditor);
       return;
@@ -372,9 +376,65 @@ export class ComposerHost implements vscode.Disposable {
     this.session = nextSession;
     this.refreshView();
     this.noteActivity(this.findSessionEditor());
-    if (event.contentChanges.some((change) => shouldTriggerComposerSuggestions(change.text))) {
+    void this.syncSuggestionWidget();
+  }
+
+  /**
+   * Opens the widget only for a word that still has candidates, and closes it as
+   * soon as the word deviates. Re-opening is limited to the start of a word,
+   * because the editor filters an open widget by itself as the developer types.
+   */
+  private async syncSuggestionWidget(): Promise<void> {
+    const editor = this.findSessionEditor();
+    const prefix = editor ? this.readCaretPrefix(editor) : "";
+    if (!editor || !prefix) {
+      this.closeSuggestionWidget();
+      return;
+    }
+
+    const identifiers = [...(await this.identifiers.ready)];
+    // The await yields, so the draft may have moved on. A later call owns that.
+    if (this.readCaretPrefix(editor) !== prefix) {
+      return;
+    }
+    if (
+      !hasSuggestionCandidates(
+        identifiers,
+        getLanguageKeywords(editor.document.languageId),
+        prefix,
+      )
+    ) {
+      this.closeSuggestionWidget();
+      return;
+    }
+
+    // Every string starts with "", so the closed state needs its own check.
+    if (!this.suggestedPrefix || !prefix.startsWith(this.suggestedPrefix)) {
       void vscode.commands.executeCommand("editor.action.triggerSuggest");
     }
+    this.suggestedPrefix = prefix;
+  }
+
+  /** Empty unless the caret sits at the end of a word inside the draft. */
+  private readCaretPrefix(editor: vscode.TextEditor): string {
+    const session = this.getSession(editor.document);
+    const caret = editor.selection.active;
+    if (
+      !session ||
+      session.phase !== "composing" ||
+      !isComposerContentLine(session, caret.line)
+    ) {
+      return "";
+    }
+    return readSuggestionPrefix(
+      editor.document.lineAt(caret.line).text,
+      caret.character,
+    );
+  }
+
+  private closeSuggestionWidget(): void {
+    this.suggestedPrefix = "";
+    hideSuggestWidget();
   }
 
   private handleForeignChange(
@@ -509,6 +569,7 @@ export class ComposerHost implements vscode.Disposable {
   }
 
   private close(editor?: vscode.TextEditor): void {
+    this.suggestedPrefix = "";
     this.view.clear(editor);
     this.identifiers.clear();
     this.session = undefined;
