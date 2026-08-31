@@ -3,10 +3,12 @@ import { PseudocodeInstruction } from "../commentParser";
 import { readIndentation } from "../indentation";
 import { getCommentWrapper } from "./commentSyntax";
 import { ComposerCompletionProvider } from "./completions";
+import { ComposerIdentifierIndex } from "./identifierIndex";
 import { createComposerInstruction } from "./instructionAdapter";
 import {
   createCodeInsertion,
   createRegionInsertion,
+  isRegionIntact,
   readRegionText,
 } from "./region";
 import {
@@ -38,14 +40,16 @@ export type GenerateComposerCode = (
 
 export class ComposerHost implements vscode.Disposable {
   private readonly view = new ComposerView();
+  private readonly identifiers = new ComposerIdentifierIndex();
   private readonly disposables: vscode.Disposable[];
   private session: ComposerSession | undefined;
   private applyingEdit = false;
   private generationCancellation: vscode.CancellationTokenSource | undefined;
 
   public constructor(private readonly generateCode: GenerateComposerCode) {
-    const completionProvider = new ComposerCompletionProvider((document) =>
-      this.getSession(document),
+    const completionProvider = new ComposerCompletionProvider(
+      (document) => this.getSession(document),
+      () => this.identifiers.ready,
     );
     this.disposables = [
       vscode.workspace.onDidChangeTextDocument((event) =>
@@ -126,7 +130,11 @@ export class ComposerHost implements vscode.Disposable {
     );
     editor.selection = new vscode.Selection(position, position);
     editor.revealRange(new vscode.Range(position, position));
-    this.view.show(editor, this.session);
+    this.view.show(editor, this.session, this.identifiers.current);
+    // The providers answer after the region is already usable, so paint again.
+    void this.identifiers
+      .load(editor.document, this.session.range)
+      .then(() => this.refreshView());
   }
 
   public async confirm(editor: vscode.TextEditor): Promise<void> {
@@ -146,7 +154,7 @@ export class ComposerHost implements vscode.Disposable {
 
     this.session = beginGeneration(session);
     this.generationCancellation = new vscode.CancellationTokenSource();
-    this.view.show(editor, this.session);
+    this.view.show(editor, this.session, this.identifiers.current);
     const version = editor.document.version;
 
     try {
@@ -178,9 +186,15 @@ export class ComposerHost implements vscode.Disposable {
     }
   }
 
+  /**
+   * Cancel ends the whole interaction: no wrapper, no draft, no session, and
+   * no suggestion widget. The rewind is preferred because it also drops the
+   * typing history; the forward delete covers a history that is not ours.
+   */
   public async cancel(editor?: vscode.TextEditor): Promise<void> {
     const activeEditor = editor ?? this.findSessionEditor();
     const session = this.session;
+    hideSuggestWidget();
     if (!session || !activeEditor) {
       this.close(activeEditor);
       return;
@@ -194,7 +208,7 @@ export class ComposerHost implements vscode.Disposable {
       this.close(activeEditor);
       return;
     }
-    await this.removeRegion(activeEditor, session);
+    await this.endSession(activeEditor, session);
   }
 
   public getSession(
@@ -241,6 +255,9 @@ export class ComposerHost implements vscode.Disposable {
     this.applyingEdit = true;
     try {
       return await rewindDocumentText(editor, session.origin.text);
+    } catch {
+      // A refused undo replay is a failed rewind, not a failed cancel.
+      return false;
     } finally {
       this.applyingEdit = false;
     }
@@ -296,17 +313,20 @@ export class ComposerHost implements vscode.Disposable {
 
   /**
    * Removal by forward edit. Used when the history is not ours to rewind,
-   * such as after an edit outside the region.
+   * such as after an edit outside the region. Deletes nothing when the
+   * delimiters are gone, because the remaining text is no longer ours.
    */
   private async removeRegion(
     editor: vscode.TextEditor,
     session: ComposerSession,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    if (!isRegionRemovable(editor.document, session)) {
+      return false;
+    }
     const range = createRemovalRange(editor.document, session);
-    this.close(editor);
     this.applyingEdit = true;
     try {
-      await editor.edit((editBuilder) => editBuilder.delete(range), {
+      return await editor.edit((editBuilder) => editBuilder.delete(range), {
         undoStopBefore: true,
         undoStopAfter: true,
       });
@@ -369,9 +389,7 @@ export class ComposerHost implements vscode.Disposable {
         change.range.start.line < originalSession.range.endLineExclusive &&
         change.range.end.line >= originalSession.range.startLine
       ) {
-        // The edit removed a composer boundary, such as Undo after opening.
-        // An extra deletion could remove source code, so only end the session.
-        this.close(this.findSessionEditor());
+        void this.endSessionAfterDelimiterEdit(originalSession);
         return;
       }
     }
@@ -382,12 +400,35 @@ export class ComposerHost implements vscode.Disposable {
       beforeDelta + insideDelta,
     );
     this.session = adjusted;
+    void this.endSession(this.findSessionEditor(), adjusted);
+  }
+
+  /** Ends the session first, so the removal edit cannot re-enter the host. */
+  private async endSession(
+    editor: vscode.TextEditor | undefined,
+    session: ComposerSession,
+  ): Promise<void> {
+    this.close(editor);
+    if (editor) {
+      await this.removeRegion(editor, session);
+    }
+  }
+
+  /**
+   * An edit that crossed a delimiter ends the session, such as Undo after
+   * opening or a Backspace that joined the draft with the opening mark. When
+   * the marks no longer match, the region is not ours to delete, so the undo
+   * replay takes the file back to the state it had before the input opened.
+   */
+  private async endSessionAfterDelimiterEdit(
+    session: ComposerSession,
+  ): Promise<void> {
     const editor = this.findSessionEditor();
-    if (!editor) {
-      this.close();
+    this.close(editor);
+    if (!editor || (await this.removeRegion(editor, session))) {
       return;
     }
-    void this.removeRegion(editor, adjusted);
+    await this.rewindToOrigin(editor, session);
   }
 
   private handleWillSave(event: vscode.TextDocumentWillSaveEvent): void {
@@ -397,8 +438,10 @@ export class ComposerHost implements vscode.Disposable {
     }
     this.generationCancellation?.cancel();
     const editor = this.findSessionEditor();
-    const removal = createRemovalRange(event.document, session);
-    event.waitUntil(Promise.resolve([vscode.TextEdit.delete(removal)]));
+    if (isRegionRemovable(event.document, session)) {
+      const removal = createRemovalRange(event.document, session);
+      event.waitUntil(Promise.resolve([vscode.TextEdit.delete(removal)]));
+    }
     this.close(editor);
   }
 
@@ -422,7 +465,7 @@ export class ComposerHost implements vscode.Disposable {
   private refreshView(): void {
     const editor = this.findSessionEditor();
     if (editor && this.session) {
-      this.view.show(editor, this.session);
+      this.view.show(editor, this.session, this.identifiers.current);
     }
   }
 
@@ -437,6 +480,7 @@ export class ComposerHost implements vscode.Disposable {
 
   private close(editor?: vscode.TextEditor): void {
     this.view.clear(editor);
+    this.identifiers.clear();
     this.session = undefined;
   }
 }
@@ -476,4 +520,25 @@ function createRemovalRange(
     document.lineAt(session.range.startLine - 1).range.end,
     document.lineAt(session.range.endLineExclusive - 1).range.end,
   );
+}
+
+function isRegionRemovable(
+  document: vscode.TextDocument,
+  session: ComposerSession,
+): boolean {
+  const wrapper = getCommentWrapper(document.languageId);
+  return (
+    wrapper !== undefined &&
+    isRegionIntact(document.getText().split(/\r?\n/), session.range, wrapper)
+  );
+}
+
+/**
+ * The composer opens the suggestion widget itself, so cancel closes it. The
+ * command does nothing when no widget is visible.
+ */
+function hideSuggestWidget(): void {
+  void Promise.resolve(
+    vscode.commands.executeCommand("hideSuggestWidget"),
+  ).then(undefined, () => undefined);
 }

@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, isComposerContentLine } from "./session";
 import { createSuggestions } from "./suggestions";
@@ -8,15 +7,20 @@ export type SessionReader = (
   document: vscode.TextDocument,
 ) => ComposerSession | undefined;
 
+export type IdentifierReader = () => Promise<ReadonlySet<string>>;
+
 export class ComposerCompletionProvider
   implements vscode.CompletionItemProvider
 {
-  public constructor(private readonly readSession: SessionReader) {}
+  public constructor(
+    private readonly readSession: SessionReader,
+    private readonly readIdentifiers: IdentifierReader,
+  ) {}
 
-  public provideCompletionItems(
+  public async provideCompletionItems(
     document: vscode.TextDocument,
     position: vscode.Position,
-  ): vscode.CompletionItem[] {
+  ): Promise<vscode.CompletionItem[]> {
     const session = this.readSession(document);
     if (!session || !isComposerContentLine(session, position.line)) {
       return [];
@@ -29,7 +33,7 @@ export class ComposerCompletionProvider
         )
       : "";
     const suggestions = createSuggestions(
-      scanIdentifiers(document.getText(), session.range),
+      [...(await this.readIdentifiers())],
       getLanguageKeywords(document.languageId),
       prefix,
     );

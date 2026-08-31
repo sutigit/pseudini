@@ -69,7 +69,7 @@ flowchart TD
   session[composerSession]
   region[composerRegion]
   packs[languagePack JSON]
-  suggest[identifierScan]
+  suggest[identifierIndex]
   view[composerView decorations]
   complete[composerCompletions]
   gen[existing generation path]
@@ -96,7 +96,8 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `commentSyntax.ts` | Comment wrapper delimiters for each supported language id | Editor edits, decorations |
 | `languagePack.ts` | Map `languageId` to a keyword list | Completions UI, session |
 | `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
-| `identifierScan.ts` | Cheap identifier list from document text, excluding the region | Language-server results, network |
+| `identifierNames.ts` | Turn semantic tokens and document symbols into a name list, excluding the region | Editor commands, decorations |
+| `identifierIndex.ts` | Ask the language providers once per session and cache the names | Which names count, decorations |
 | `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words, and the unclassified gaps between them | Grammar parsing, theme colors |
 | `instructionAdapter.ts` | Map session draft + range to one `PseudocodeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
@@ -155,7 +156,19 @@ The rewind is only safe for edits the composer made itself:
 a failed rewind never leaves a half-restored file. The caller then falls back to replacing the
 visible region.
 
-Cancel by forward edit removes the complete temporary wrapper range in one edit.
+Cancel by forward edit removes the complete temporary wrapper range in one edit. It deletes only
+text the composer still recognizes as its own: `isRegionIntact` requires the recorded range to sit
+inside the file and to open and close with the wrapper marks. A range that no longer matches is
+never deleted, because the lines could be source code by then.
+
+Escape must end the whole interaction, with no wrapper, no draft, and no suggestion widget left
+behind. Two rules keep that true:
+
+- An edit that crosses a delimiter ends the session, such as a Backspace that joins the draft with
+  the opening mark. The session removes the region when the marks survived, and replays undo to
+  `origin.text` when they did not. Ending the session without cleaning the buffer would leave a
+  stray comment that Escape can no longer reach.
+- Cancel closes the suggestion widget, which the composer opened itself.
 
 ### Synthetic instruction
 
@@ -176,17 +189,32 @@ Word count for `largeRequestRoute` uses the draft, same 50-word rule as comments
 
 ### Completions and highlight
 
-Suggestions are prefix-based and case-insensitive. Sources, in order: identifiers from the active
-file outside the wrapper, then keywords from the pack. No extra network calls. Comment wrappers
+Suggestions are prefix-based and case-insensitive. Sources, in order: names from the active file
+outside the wrapper, then keywords from the pack. No extra network calls. Comment wrappers
 disable the editor's automatic suggestion trigger, so the host opens the widget after a typed
 word character.
+
+The names come from the language providers, never from a text scan. `identifierIndex.ts` runs
+`vscode.provideDocumentSemanticTokens` with its legend, and falls back to
+`vscode.executeDocumentSymbolProvider` when a language has no semantic token provider, such as CSS
+and HTML. When neither answers, no name is coloured and only keywords stay coloured. A text scan
+would turn every word of an English comment into a "known name" and colour ordinary prose.
+
+`identifierNames.ts` decodes that output: it keeps tokens whose legend type names something, skips
+the composer region, and drops anything that is not identifier-shaped. Document symbol names are
+split into their identifier words, so a CSS selector `.card .title` contributes `card` and `title`.
+
+The index loads once, right after the region opens, against a text snapshot taken at request time.
+An edit outside the region ends the session, so the names cannot go stale while the developer
+types. The load does not block opening: the draft is empty until the first keystroke, and the view
+paints again when the providers answer.
 
 Coloring is deterministic token decoration, not grammar parsing. Each content line is split into
 three groups of ranges that never overlap, because two colour decorations over the same characters
 leave the winner to the editor and the keyword colour loses:
 
 1. `symbolIcon.keywordForeground` for language-pack keywords.
-2. `symbolIcon.variableForeground` for exact, case-sensitive identifiers found outside the wrapper.
+2. `symbolIcon.variableForeground` for exact, case-sensitive matches of the provider names.
 3. `editor.foreground` for the remaining offsets, from `findUnclassifiedSpans`.
 
 All three also set `fontStyle: "normal"`, since every group would otherwise inherit the italic
@@ -235,7 +263,7 @@ Safe to change without touching generation:
 
 - Decoration look (`view.ts`)
 - Keyword lists (`packs/`)
-- Completion ranking (`completions.ts` + `identifierScan.ts`)
+- Completion ranking (`completions.ts` + `suggestions.ts`)
 
 Safe to change without touching the composer:
 
@@ -277,7 +305,7 @@ Next to the modules, same style as [`test/commentParser.test.ts`](../test/commen
 | Region | Open, grow, cancel restore byte-for-byte, replace |
 | Session | Illegal transitions throw; outside-range change requests cancel |
 | Adapter | Draft and range become one instruction; indent stripped from pseudocode |
-| Identifier scan | Names from a fixture; region lines omitted |
+| Identifier names | Semantic tokens become names; comment tokens and region lines omitted; symbol names split into words |
 | Pack lookup | `typescriptreact` gets TS + JSX tag names; unknown id returns empty |
 | Completions | Empty list when position is outside a stub session range |
 
@@ -291,7 +319,8 @@ latency, models, or fixtures.
 | Free prose produces static syntax diagnostics | Keep it inside temporary comment wrappers |
 | A typed closing delimiter ends a block comment | Treat delimiter edits as session cancellation |
 | Typing history leaves many undo stops | Replay `undo` to `origin.text` before the generated insert; `redo` back and fall back when that fails |
-| Native comment color hides useful names | Overlay only known identifiers and language keywords |
+| Native comment color hides useful names | Overlay only provider names and language keywords |
+| A language reports no names | Fall back to document symbols, then colour keywords only |
 | `buildFileContext` includes the draft | Measure; strip later in `fileContext` only if it causes copy-back |
 | Decoration APIs differ from the canvas | Slice 2 is a live F5 check, not a canvas check |
 | `document.version` during pending | Session-owned vs foreign edits; abort foreign |

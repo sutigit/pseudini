@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import { scanIdentifiers } from "./identifierScan";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
 import {
@@ -66,9 +65,13 @@ export class ComposerView implements vscode.Disposable {
     this.status.name = "Pseudini inline composer";
   }
 
-  public show(editor: vscode.TextEditor, session: ComposerSession): void {
+  public show(
+    editor: vscode.TextEditor,
+    session: ComposerSession,
+    identifiers: ReadonlySet<string>,
+  ): void {
     const region = toEditorRange(editor.document, session);
-    const draftRanges = createDraftRanges(editor.document, session);
+    const draftRanges = createDraftRanges(editor.document, session, identifiers);
     editor.setDecorations(this.regionDecoration, [region]);
     editor.setDecorations(
       this.dimDecoration,
@@ -175,10 +178,8 @@ type DraftRanges = Record<ComposerTokenKind | "plain", vscode.Range[]>;
 function createDraftRanges(
   document: vscode.TextDocument,
   session: ComposerSession,
+  identifiers: ReadonlySet<string>,
 ): DraftRanges {
-  const identifiers = new Set(
-    scanIdentifiers(document.getText(), session.range),
-  );
   const keywords = new Set(getLanguageKeywords(document.languageId));
   const ranges: DraftRanges = { identifier: [], keyword: [], plain: [] };
 

@@ -8,6 +8,19 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ## 2026-08-31
 
+### Fixed
+
+- Escape ends the whole inline input again. An edit that crossed a wrapper mark, such as a
+  Backspace at the start of the draft, used to end the session and leave the comment and the typed
+  text in the file, where Escape could no longer reach them. Such an edit now removes the region, or
+  replays undo when the marks no longer match. Cancel also closes the suggestion widget, and a
+  forward delete only removes a range that still holds the composer's own marks.
+- The inline input colors and suggests only names the language service reports, through the
+  document semantic token and document symbol providers. A text scan had made every word of a
+  comment, string, or markup text a "known name", so prose in the draft looked like code. Languages
+  without a semantic token provider fall back to document symbols, and colour keywords only when
+  neither provider answers.
+
 ### Changed
 
 - Replaced the comment marker with `pseudini:` across parsing, commands, tests, benchmarks, and
