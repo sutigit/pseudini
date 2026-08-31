@@ -11,13 +11,13 @@ an indented input region in the active file. Type the implementation idea, then 
 the region with generated code. One **Undo** returns the file to the state it had before the input
 opened, including the pseudocode you typed. Escape leaves no undo history.
 
-The inline input supports TypeScript, JavaScript, JSX, TSX, HTML, and CSS. It suggests and colors
-the names the language service reports for the active file, such as variables, parameters,
-functions, and types, plus language keywords. Words that only appear in comments, strings, or
-markup text are not names, so ordinary prose stays plain. Suggestions open as you type a word. Temporary
-language-specific comment wrappers keep free-form input out of static syntax diagnostics. The
-wrapper marks are hidden from view, and the caret stays inside the writable lines so you cannot
-edit them. Pseudini removes the wrappers on confirm or
+The inline input supports TypeScript, JavaScript, JSX, TSX, HTML, and CSS. It suggests names the
+language service reports for the active file, such as variables, parameters, functions, and types,
+plus language keywords. It colors those file names in the draft. Words that only appear in
+comments, strings, or markup text are not names, so ordinary prose stays plain. Suggestions open as
+you type a word. Temporary language-specific comment wrappers keep free-form input out of static
+syntax diagnostics. The wrapper marks are hidden from view, and the caret stays inside the writable
+lines so you cannot edit them. Pseudini removes the wrappers on confirm or
 cancel, and cancels the input before a save. The open command has no default keybinding.
 
 The `pseudini:` comment workflow remains available:

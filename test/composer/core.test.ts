@@ -153,37 +153,21 @@ test("loads keyword packs by language id", () => {
   assert.deepEqual(getLanguageKeywords("python"), []);
 });
 
-test("classifies reserved words and known file identifiers without parsing prose", () => {
+test("classifies known file identifiers without parsing prose", () => {
   assert.deepEqual(
     classifyComposerTokens(
       "if orderTotal changes then return newName",
       new Set(["orderTotal"]),
-      new Set(["if", "return"]),
     ),
-    [
-      { start: 0, end: 2, kind: "keyword" },
-      { start: 3, end: 13, kind: "identifier" },
-      { start: 27, end: 33, kind: "keyword" },
-    ],
-  );
-});
-
-test("gives reserved words priority over scanned identifiers", () => {
-  assert.deepEqual(
-    classifyComposerTokens("return", new Set(["return"]), new Set(["return"])),
-    [{ start: 0, end: 6, kind: "keyword" }],
+    [{ start: 3, end: 13 }],
   );
 });
 
 test("leaves the gaps between classified tokens for plain colouring", () => {
-  const tokens = classifyComposerTokens(
-    "  if orderTotal grows",
-    new Set(["orderTotal"]),
-    new Set(["if"]),
-  );
-  assert.deepEqual(findUnclassifiedSpans("  if orderTotal grows".length, tokens), [
-    { start: 0, end: 2 },
-    { start: 4, end: 5 },
+  const line = "  if orderTotal grows";
+  const tokens = classifyComposerTokens(line, new Set(["orderTotal"]));
+  assert.deepEqual(findUnclassifiedSpans(line.length, tokens), [
+    { start: 0, end: 5 },
     { start: 15, end: 21 },
   ]);
 });
@@ -193,8 +177,5 @@ test("covers a whole line when no token is classified", () => {
 });
 
 test("returns no gap when a classified token fills the line", () => {
-  assert.deepEqual(
-    findUnclassifiedSpans(6, [{ start: 0, end: 6, kind: "keyword" }]),
-    [],
-  );
+  assert.deepEqual(findUnclassifiedSpans(6, [{ start: 0, end: 6 }]), []);
 });

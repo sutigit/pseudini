@@ -31,6 +31,8 @@ The package version remains `0.1.0`. Dates use the commit dates on `main`.
 
 ### Changed
 
+- The inline input no longer colours language keywords such as `const` and `return`. Those words
+  stay in the suggestion list. The draft still colours names the language service reports.
 - Replaced the comment marker with `pseudini:` across parsing, commands, tests, benchmarks, and
   documentation.
 - Moved the disposable context cache into `.cursor/pseudini/cache-v1/`.

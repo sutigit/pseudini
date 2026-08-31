@@ -1,11 +1,9 @@
 import * as vscode from "vscode";
 import { createComposerPlaceholder, isMacPlatform } from "./hint";
 import { ComposerHintView } from "./hintView";
-import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
 import {
   classifyComposerTokens,
-  ComposerTokenKind,
   ComposerTokenSpan,
   findUnclassifiedSpans,
 } from "./tokenClassifier";
@@ -26,16 +24,11 @@ export class ComposerView implements vscode.Disposable {
       opacity: "0.4",
     },
   );
-  // Covers only the draft text that is neither a keyword nor a known name.
-  // Overlapping colour decorations would fight, so the ranges stay disjoint.
+  // Covers only the draft text that is not a known name. Overlapping colour
+  // decorations would fight, so the ranges stay disjoint.
   private readonly plainDecoration =
     vscode.window.createTextEditorDecorationType({
       color: new vscode.ThemeColor("editor.foreground"),
-      fontStyle: "normal",
-    });
-  private readonly keywordDecoration =
-    vscode.window.createTextEditorDecorationType({
-      color: new vscode.ThemeColor("symbolIcon.keywordForeground"),
       fontStyle: "normal",
     });
   private readonly identifierDecoration =
@@ -82,7 +75,6 @@ export class ComposerView implements vscode.Disposable {
       createDimRanges(editor.document, session),
     );
     editor.setDecorations(this.plainDecoration, draftRanges.plain);
-    editor.setDecorations(this.keywordDecoration, draftRanges.keyword);
     editor.setDecorations(this.identifierDecoration, draftRanges.identifier);
     editor.setDecorations(
       this.wrapperDecoration,
@@ -129,7 +121,6 @@ export class ComposerView implements vscode.Disposable {
       editor.setDecorations(this.regionDecoration, []);
       editor.setDecorations(this.dimDecoration, []);
       editor.setDecorations(this.plainDecoration, []);
-      editor.setDecorations(this.keywordDecoration, []);
       editor.setDecorations(this.identifierDecoration, []);
       editor.setDecorations(this.wrapperDecoration, []);
       editor.setDecorations(this.placeholderDecoration, []);
@@ -148,7 +139,6 @@ export class ComposerView implements vscode.Disposable {
     this.regionDecoration.dispose();
     this.dimDecoration.dispose();
     this.plainDecoration.dispose();
-    this.keywordDecoration.dispose();
     this.identifierDecoration.dispose();
     this.wrapperDecoration.dispose();
     this.placeholderDecoration.dispose();
@@ -191,11 +181,14 @@ function createDimRanges(
   return ranges;
 }
 
-type DraftRanges = Record<ComposerTokenKind | "plain", vscode.Range[]>;
+type DraftRanges = {
+  readonly identifier: vscode.Range[];
+  readonly plain: vscode.Range[];
+};
 
 /**
- * Splits the draft into three groups that never overlap: keywords, known names,
- * and everything else. The draft is comment text, so the third group carries the
+ * Splits the draft into two groups that never overlap: known names, and
+ * everything else. The draft is comment text, so the second group carries the
  * normal foreground that the comment style would otherwise dim.
  */
 function createDraftRanges(
@@ -203,8 +196,7 @@ function createDraftRanges(
   session: ComposerSession,
   identifiers: ReadonlySet<string>,
 ): DraftRanges {
-  const keywords = new Set(getLanguageKeywords(document.languageId));
-  const ranges: DraftRanges = { identifier: [], keyword: [], plain: [] };
+  const ranges: DraftRanges = { identifier: [], plain: [] };
 
   for (
     let lineNumber = session.contentRange.startLine;
@@ -212,9 +204,9 @@ function createDraftRanges(
     lineNumber += 1
   ) {
     const line = document.lineAt(lineNumber);
-    const tokens = classifyComposerTokens(line.text, identifiers, keywords);
+    const tokens = classifyComposerTokens(line.text, identifiers);
     for (const token of tokens) {
-      ranges[token.kind].push(toLineRange(lineNumber, token));
+      ranges.identifier.push(toLineRange(lineNumber, token));
     }
     for (const span of findUnclassifiedSpans(line.text.length, tokens)) {
       ranges.plain.push(toLineRange(lineNumber, span));

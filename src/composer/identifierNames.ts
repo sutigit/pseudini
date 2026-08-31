@@ -13,7 +13,7 @@ const IDENTIFIER_WORD = /[A-Za-z_$][\w$]*/g;
 /**
  * Legend types that name something. Covers the standard legend and the extra
  * `member` type that the TypeScript language service reports. Prose-carrying
- * types (`comment`, `string`) and types the keyword packs already own stay out.
+ * types (`comment`, `string`) and syntax types such as `keyword` stay out.
  */
 const IDENTIFIER_TOKEN_TYPES = new Set([
   "class",

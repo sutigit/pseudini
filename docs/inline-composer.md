@@ -98,7 +98,7 @@ Place new files under `src/composer/` with tests under `test/composer/`. Do not 
 | `packs/*.json` | Keyword arrays for `typescript`, `javascript`, `javascriptreact`, `typescriptreact`, `html`, `css` | Logic |
 | `identifierNames.ts` | Turn semantic tokens and document symbols into a name list, excluding the region | Editor commands, decorations |
 | `identifierIndex.ts` | Ask the language providers once per session and cache the names | Which names count, decorations |
-| `tokenClassifier.ts` | Pure offset classification for known identifiers and reserved words, and the unclassified gaps between them | Grammar parsing, theme colors |
+| `tokenClassifier.ts` | Pure offset classification for known identifiers, and the unclassified gaps between them | Grammar parsing, theme colors |
 | `instructionAdapter.ts` | Map session draft + range to one `PseudocodeInstruction` | Prompt text, Ollama |
 | `host.ts` | One session per editor, document change filter, confirm/cancel commands | Prompt construction |
 | `view.ts` | Accent stripe, region fill, dimming of other lines, pending label, `pseudini.composerActive` context key | Buffer edits |
@@ -199,7 +199,7 @@ word character.
 The names come from the language providers, never from a text scan. `identifierIndex.ts` runs
 `vscode.provideDocumentSemanticTokens` with its legend, and falls back to
 `vscode.executeDocumentSymbolProvider` when a language has no semantic token provider, such as CSS
-and HTML. When neither answers, no name is coloured and only keywords stay coloured. A text scan
+and HTML. When neither answers, no name is coloured. A text scan
 would turn every word of an English comment into a "known name" and colour ordinary prose.
 
 `identifierNames.ts` decodes that output: it keeps tokens whose legend type names something, skips
@@ -212,14 +212,13 @@ types. The load does not block opening: the draft is empty until the first keyst
 paints again when the providers answer.
 
 Coloring is deterministic token decoration, not grammar parsing. Each content line is split into
-three groups of ranges that never overlap, because two colour decorations over the same characters
-leave the winner to the editor and the keyword colour loses:
+two groups of ranges that never overlap, because two colour decorations over the same characters
+leave the winner to the editor:
 
-1. `symbolIcon.keywordForeground` for language-pack keywords.
-2. `symbolIcon.variableForeground` for exact, case-sensitive matches of the provider names.
-3. `editor.foreground` for the remaining offsets, from `findUnclassifiedSpans`.
+1. `symbolIcon.variableForeground` for exact, case-sensitive matches of the provider names.
+2. `editor.foreground` for the remaining offsets, from `findUnclassifiedSpans`.
 
-All three also set `fontStyle: "normal"`, since every group would otherwise inherit the italic
+Both also set `fontStyle: "normal"`, since every group would otherwise inherit the italic
 comment style.
 
 The active document language does not change. Copying a region line copies the real delimiter text,
@@ -309,7 +308,7 @@ previous one is usable in the F5 host.
 3. **Generation.** Adapter → existing `createReplacements` path for one instruction → replace
    region. Progress UI may be a region label instead of a window notification. Abort rules as
    above.
-4. **Completions + keyword overlay.** File identifiers and packs. Tests for match and for
+4. **Completions.** File identifiers and keyword packs. Tests for match and for
    "provider silent outside region".
 5. **Language packs for HTML and CSS.** Data only. Confirm indent still looks right in CSS.
 6. **Stop.** No contribution point, no comment-region fork, no keep-and-insert-below, until a
@@ -338,8 +337,8 @@ latency, models, or fixtures.
 | Free prose produces static syntax diagnostics | Keep it inside temporary comment wrappers |
 | A typed closing delimiter ends a block comment | Treat delimiter edits as session cancellation |
 | Typing history leaves many undo stops | Replay `undo` to `origin.text` before the generated insert; `redo` back and fall back when that fails |
-| Native comment color hides useful names | Overlay only provider names and language keywords |
-| A language reports no names | Fall back to document symbols, then colour keywords only |
+| Native comment color hides useful names | Overlay only provider names |
+| A language reports no names | Fall back to document symbols |
 | `buildFileContext` includes the draft | Measure; strip later in `fileContext` only if it causes copy-back |
 | Decoration APIs differ from the canvas | Slice 2 is a live F5 check, not a canvas check |
 | `document.version` during pending | Session-owned vs foreign edits; abort foreign |

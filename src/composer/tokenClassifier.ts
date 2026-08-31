@@ -1,12 +1,6 @@
-export type ComposerTokenKind = "identifier" | "keyword";
-
 export interface ComposerTokenSpan {
   readonly start: number;
   readonly end: number;
-}
-
-export interface ComposerToken extends ComposerTokenSpan {
-  readonly kind: ComposerTokenKind;
 }
 
 const WORD_PATTERN = /[A-Za-z_$][\w$-]*/g;
@@ -14,26 +8,17 @@ const WORD_PATTERN = /[A-Za-z_$][\w$-]*/g;
 export function classifyComposerTokens(
   text: string,
   identifiers: ReadonlySet<string>,
-  keywords: ReadonlySet<string>,
-): readonly ComposerToken[] {
-  const tokens: ComposerToken[] = [];
+): readonly ComposerTokenSpan[] {
+  const tokens: ComposerTokenSpan[] = [];
 
   for (const match of text.matchAll(WORD_PATTERN)) {
-    if (match.index === undefined) {
+    if (match.index === undefined || !identifiers.has(match[0])) {
       continue;
     }
-    const kind = keywords.has(match[0])
-      ? "keyword"
-      : identifiers.has(match[0])
-        ? "identifier"
-        : undefined;
-    if (kind) {
-      tokens.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        kind,
-      });
-    }
+    tokens.push({
+      start: match.index,
+      end: match.index + match[0].length,
+    });
   }
 
   return tokens;
@@ -46,7 +31,7 @@ export function classifyComposerTokens(
  */
 export function findUnclassifiedSpans(
   lineLength: number,
-  tokens: readonly ComposerToken[],
+  tokens: readonly ComposerTokenSpan[],
 ): readonly ComposerTokenSpan[] {
   const spans: ComposerTokenSpan[] = [];
   let offset = 0;
