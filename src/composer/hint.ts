@@ -41,7 +41,7 @@ export function readHintVisibility(
 }
 
 export function createComposingHint(isMac: boolean): string {
-  return padHint(composingHintText(isMac));
+  return padHint(`✨ ${composingHintText(isMac)}`);
 }
 
 export function createPendingHint(frame: number): string {
@@ -62,7 +62,7 @@ export function isMacPlatform(): boolean {
 }
 
 function composingHintText(isMac: boolean): string {
-  return `✨ esc cancels | pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`;
+  return `esc cancels | pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`;
 }
 
 /** Attachments have no reliable padding property, so pad with spaces. */

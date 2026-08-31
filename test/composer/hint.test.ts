@@ -31,11 +31,11 @@ test("names the confirm chord for the platform", () => {
 test("prompts in the placeholder with the chip wording", () => {
   assert.equal(
     createComposerPlaceholder(true),
-    "describe your code | ✨ esc cancels | pseudini ⌘↵",
+    "describe your code | esc cancels | pseudini ⌘↵",
   );
   assert.equal(
     createComposerPlaceholder(false),
-    "describe your code | ✨ esc cancels | pseudini Ctrl+↵",
+    "describe your code | esc cancels | pseudini Ctrl+↵",
   );
 });
 
