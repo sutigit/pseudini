@@ -3,6 +3,7 @@ import {
   createComposingHint,
   createPendingHint,
   HINT_IDLE_TIMEOUT_MS,
+  isMacPlatform,
   readHintVisibility,
   SPINNER_INTERVAL_MS,
 } from "./hint";
@@ -19,10 +20,10 @@ export class ComposerHintView implements vscode.Disposable {
     after: {
       color: new vscode.ThemeColor("editorWidget.foreground"),
       backgroundColor: new vscode.ThemeColor("editorWidget.background"),
-      border: "1px solid",
-      borderColor: new vscode.ThemeColor("widget.border"),
-      margin: "0 0 0 1.5rem",
+      margin: "0 0 0 1rem",
       fontStyle: "normal",
+      textDecoration:
+        "none; border-radius: 4px; padding: 4px 10px 4px 6px; opacity: 0.8; font-size: 10px;", // This is totally ad-hoc. "smuggled css"
     },
   });
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,7 +50,7 @@ export class ComposerHintView implements vscode.Disposable {
       this.hide(editor);
       return;
     }
-    this.paint(editor, session, createComposingHint(isMac()));
+    this.paint(editor, session, createComposingHint(isMacPlatform()));
   }
 
   public noteActivity(
@@ -121,7 +122,10 @@ export class ComposerHintView implements vscode.Disposable {
   ): void {
     const anchor = readAnchorPosition(editor, session);
     editor.setDecorations(this.decoration, [
-      { range: new vscode.Range(anchor, anchor), renderOptions: { after: { contentText } } },
+      {
+        range: new vscode.Range(anchor, anchor),
+        renderOptions: { after: { contentText } },
+      },
     ]);
   }
 
@@ -144,8 +148,4 @@ function readAnchorPosition(
       ? session.contentRange.endLineExclusive - 1
       : caretLine;
   return editor.document.lineAt(lineNumber).range.end;
-}
-
-function isMac(): boolean {
-  return process.platform === "darwin";
 }

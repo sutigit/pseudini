@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { createComposerPlaceholder, isMacPlatform } from "./hint";
 import { ComposerHintView } from "./hintView";
 import { getLanguageKeywords } from "./languagePack";
 import { ComposerSession, readComposerWrapperLines } from "./session";
@@ -9,7 +10,7 @@ import {
   findUnclassifiedSpans,
 } from "./tokenClassifier";
 
-const PLACEHOLDER = "describe the change | esc cancels | translate ⌘⏎";
+const PLACEHOLDER = createComposerPlaceholder(isMacPlatform());
 
 export class ComposerView implements vscode.Disposable {
   private readonly regionDecoration =

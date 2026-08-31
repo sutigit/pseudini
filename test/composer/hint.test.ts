@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createComposerPlaceholder,
   createComposingHint,
   createPendingHint,
   readHintVisibility,
@@ -23,8 +24,19 @@ function openSession(): ReturnType<typeof createComposerSession> {
 }
 
 test("names the confirm chord for the platform", () => {
-  assert.equal(createComposingHint(true), " Esc cancels · Pseudini ⌘↵ ");
-  assert.equal(createComposingHint(false), " Esc cancels · Pseudini Ctrl+↵ ");
+  assert.equal(createComposingHint(true), " esc cancels | pseudini ⌘↵ ");
+  assert.equal(createComposingHint(false), " esc cancels | pseudini Ctrl+↵ ");
+});
+
+test("prompts in the placeholder with the chip wording", () => {
+  assert.equal(
+    createComposerPlaceholder(true),
+    "describe your code | esc cancels | pseudini ⌘↵",
+  );
+  assert.equal(
+    createComposerPlaceholder(false),
+    "describe your code | esc cancels | pseudini Ctrl+↵",
+  );
 });
 
 test("cycles the spinner frames", () => {

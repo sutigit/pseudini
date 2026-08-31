@@ -41,12 +41,28 @@ export function readHintVisibility(
 }
 
 export function createComposingHint(isMac: boolean): string {
-  return padHint(`Esc cancels · Pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`);
+  return padHint(composingHintText(isMac));
 }
 
 export function createPendingHint(frame: number): string {
   const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
   return padHint(`${spinner} Generating syntax`);
+}
+
+/**
+ * The placeholder stands in for the chip while the region is empty, so it
+ * repeats the chip wording behind a prompt for the developer.
+ */
+export function createComposerPlaceholder(isMac: boolean): string {
+  return `describe your code | ${composingHintText(isMac)}`;
+}
+
+export function isMacPlatform(): boolean {
+  return process.platform === "darwin";
+}
+
+function composingHintText(isMac: boolean): string {
+  return `esc cancels | pseudini ${isMac ? "⌘↵" : "Ctrl+↵"}`;
 }
 
 /** Attachments have no reliable padding property, so pad with spaces. */

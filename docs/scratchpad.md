@@ -10,7 +10,7 @@
 - [x] Make sure the color highlighting works only on identifier names
 - [x] Create the end of the typed line anchored "esc cancels | pseudini ⌘⏎" chip to remind how the heck did we convert it again
 - [x] Loading indication that pseudini conversion started (something cool but feasable)
-- [ ] Stop showing "no suggestions" suggestion box if there are no suggestions
+- [ ] Stop showing "no suggestions" suggestion box if there are no suggestions. The suggestion box is wayy too trigger happy
 
 #### Iteration 0.1
 
